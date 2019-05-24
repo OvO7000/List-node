@@ -1,0 +1,25 @@
+{
+  "name": "list-node",
+  "version": "0.1.0",
+  "description": "记录工具后端",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OvO7000/List-node.git"
+  },
+  "keywords": [
+    "node"
+  ],
+  "author": "OvO7000",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/OvO7000/List-node/issues"
+  },
+  "homepage": "https://github.com/OvO7000/List-node#readme"
+}
