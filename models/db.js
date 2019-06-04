@@ -42,15 +42,12 @@ function model (name, option, index) {
     /**
      * 创建文档
      */
-    let create = option =>{
+    model.create = option =>{
         const document = new model(option)
         return document.save()
     }
 
-    return {
-        model,
-        create
-    }
+    return model
 }
 
 module.exports = model
