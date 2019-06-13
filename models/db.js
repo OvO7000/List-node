@@ -31,8 +31,8 @@ function model (name, option, index) {
         ...option
     }
     const schema = new mongoose.Schema(option)
-    // 创建索引
 
+    // 创建索引
     if (index) {
         schema.index(index)
     }
