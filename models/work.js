@@ -1,13 +1,13 @@
 const model = require('./db')
+const mongoose = require('mongoose')
 
 const name = 'Work'
 const schema = {
     name: { type: String, required: true },
-    originName: String,
     rank: { type: Boolean, default: false },
-    subType: { type: Schema.Types.ObjectId, required: true },
-    adapt: [ Schema.Types.ObjectId ],
-    secret: { type: Boolean, default: true }
+    subType: { type: mongoose.Schema.ObjectId, required: true },
+    adapt: [ mongoose.Schema.ObjectId ],
+    secret: { type: Boolean, default: false }
 }
 
 module.exports = model(name, schema)

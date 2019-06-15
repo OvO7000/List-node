@@ -23,14 +23,13 @@ mongoose.connect(url, config)
 function model (name, option, index) {
     // 添加默认字段
     const allOption = {
-
         created_at: {type: Date, default: Date.now()},
         update_at: {type: Date, default: Date.now()},
         deleted_at: {type: Date, default: Date.now()},
         is_deleted: {type: Boolean, default: false},
         ...option
     }
-    const schema = new mongoose.Schema(option)
+    const schema = new mongoose.Schema(allOption)
 
     // 创建索引
     if (index) {
@@ -49,5 +48,6 @@ function model (name, option, index) {
 
     return model
 }
+
 
 module.exports = model

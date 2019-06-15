@@ -29,7 +29,7 @@ const index = async (req, res) => {
         util.send(res, result)
     }
     catch(e){
-        util.errSend(e, res)
+        util.errSend(res, e)
     }
 }
 
