@@ -4,7 +4,7 @@ const url = 'mongodb://localhost:27017/list'
 const config = {
     useNewUrlParser: true
 }
-
+mongoose.set('useFindAndModify', false)
 mongoose.Promise = global.Promise
 
 mongoose.connect(url, config)

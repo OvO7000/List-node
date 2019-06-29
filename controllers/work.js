@@ -6,59 +6,63 @@ const Sub = require('../models/sub')
 const Img = require('../models/img')
 const Type = require('../models/type')
 const Work = require('../models/work')
+
 const util = require('../lib/util')
 const schema = require('../lib/schema')
 
-const add = async (req, res) =>  {
+const add = async (req, res, next) => {
     try {
         // 检查上传数据
         const value = await joi.validate(req.body, schema.work)
-            .catch(err => Promise.reject( 'work数据错误'))
+            .catch(err => {
+                err.msg = 'work数据错误'
+                err.code = '406'
+                throw err
+            })
         // 检查 subType 是否存在
-        const subType = await Type.findOne({ 'subType.name_en': value.subType })
+        const subType = await Type.findOne({'subType.name_en': value.subType})
             .catch(err => Promise.reject(err))
         if (!subType) {
-          throw new Error('没有找到subType')
-        }
-        // 检查 work 是否已存在
-        let option = {
-            'name': value.name,
-            'subType': subType._id
-        }
-        const works = await Work.find(option)
-            .catch(err => Promise.reject(err))
-        if (works.length > 0) {
-            throw new Error('work已存在')
+            const err = new Error()
+            err.msg = '没有找到subType'
+            err.code = '406'
+            throw err
         }
         // 保存 work
         let data = {
-            name: value.name,
             rank: value.rank,
             subType: subType._id,
         }
-        const secret = value.sub.every(item => item.secret === true)
-        data.secret = secret
+        data.secret = value.sub.every(item => item.secret === true)
         const work = await Work.create(data)
             .catch(err => Promise.reject(err))
 
         // 保存sub
-        value.sub.forEach(async item =>{
-            if (item.img) {
-            }
+        let promises = value.sub.map(async item => {
 
             let option = item
             option.work = work._id
 
-            await Sub.create(option)
+            let sub = await Sub.create(option)
                 .catch(err => Promise.reject(err))
+            // util.log(sub)
+            return sub._id
         })
+        // util.log(result)
+        const result = await Promise.all(promises)
 
-        util.send(res, work._id)
+        res.send(result)
     } catch (e) {
-        util.log(e)
-        util.errSend(res, e)
+        // util.errSend(res, e)
+        next(e)
     }
 }
+
+const test = async (req, res, next) => {
+    util.log(req.body.img)
+    util.send(res, 'success')
+}
+
 
 module.exports = {
     add
