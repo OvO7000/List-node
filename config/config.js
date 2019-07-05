@@ -20,6 +20,10 @@ const config = {
             figure: 'assets/imgs/figure',
         },
         length: 20
+    },
+    url: {
+        app: 'http://list.ovo7.cn',
+        img: 'http://img.list.ovo7.cn'
     }
 }
 

@@ -13,48 +13,49 @@ const config = require('../config/config')
 
 
 const add = async (req, res, next) => {
+    console.log(req.body)
     try {
-        const value = await joi.validate(req.body, schema.img)
+        const value = await joi.validate(req.body, schema.img.add)
             .catch((err) => {
-                err.msg = 'work数据错误'
+                err.msg = 'img数据错误'
                 err.code = '406'
                 throw err
             })
 
         // 删除所有旧图片
-        const deleteImg = value.ids.map(async (id, index) => {
-            const sub = await Sub.findById(id)
-                .catch((err) => { throw err })
-            if (!sub) {
-                const err = new Error()
-                err.msg = '没有找到Sub'
-                err.code = 406
-                throw err
-            }
-            if (sub.img) {
-                const oldImg = await Img.findById(sub.img)
-                    .catch((err) => { throw err })
-                if (!oldImg) {
-                    // 这段之后需要删除
-                    const err = new Error()
-                    err.msg = '没有找到OldImg'
-                    err.code = 406
-                    throw err
-                }
-                const remove = await fs.unlink(oldImg.path)
-                    .catch((err) => { throw err })
-                util.log(remove)
-                const option = {
-                    is_deleted: true,
-                    update_at: Date.now(),
-                    deleted_at: Date.now(),
-                }
-                await Img.findByIdAndUpdate(sub.img, option)
-                    .catch((err) => { throw err })
-            }
-        }
+        // const deleteImg = value.ids.map(async (id, index) => {
+        //     const sub = await Sub.findById(id)
+        //         .catch((err) => { throw err })
+        //     if (!sub) {
+        //         const err = new Error()
+        //         err.msg = '没有找到Sub'
+        //         err.code = 406
+        //         throw err
+        //     }
+        //     if (sub.img) {
+        //         const oldImg = await Img.findById(sub.img)
+        //             .catch((err) => { throw err })
+        //         if (!oldImg) {
+        //             // 这段之后需要删除
+        //             const err = new Error()
+        //             err.msg = '没有找到OldImg'
+        //             err.code = 406
+        //             throw err
+        //         }
+        //         const remove = await fs.unlink(oldImg.path)
+        //             .catch((err) => { throw err })
+        //         util.log(remove)
+        //         const option = {
+        //             is_deleted: true,
+        //             update_at: Date.now(),
+        //             deleted_at: Date.now(),
+        //         }
+        //         await Img.findByIdAndUpdate(sub.img, option)
+        //             .catch((err) => { throw err })
+        //     }
+        // }
 
-        const saveImg = value.idsWithImg.map(async (id, index) => {
+        const saveImg = value.ids.map(async (id, index) => {
             // 查找 sub
             const sub = await Sub.findById(id)
                 .catch((err) => { throw err })
@@ -84,9 +85,12 @@ const add = async (req, res, next) => {
             }
             // 移动新图片
             const file = req.files[index]
-            util.log(file)
+            // 'assets/imgs/work/comic/xxxx.jpg'
+            // 'assets/imgs/work/comic'
+            // 'work/comic/xxxx.jpg'
             const newFile = config.img.path.work + '/' + type.subType.name_en + '/' + file.filename
             const newPath = config.img.path.work + '/' + type.subType.name_en
+            const savePath = 'work/' + type.subType.name_en + '/' + file.filename
             const exist = await fs.access(newPath)
                 .catch(async (err) => {
                     if (err.code === 'ENOENT') {
@@ -98,10 +102,9 @@ const add = async (req, res, next) => {
             const save = await fs.rename(file.path, newFile)
                 .catch((err) => { throw err })
 
-            util.log(save)
             // 保存 img
             let option = {
-                path: newPath
+                path: savePath
             }
 
             let img = await Img.create(option)

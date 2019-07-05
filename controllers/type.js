@@ -9,7 +9,7 @@ const util = require('../lib/util')
  * @param res
  * @returns {Promise<void>}
  */
-const index = async (req, res) => {
+const index = async (req, res, next) => {
     try{
         let types = await Type.find({secret: false})
             .catch(err => Promise.reject([400, '查找类型错误']))
@@ -26,10 +26,10 @@ const index = async (req, res) => {
             }
             result[type.type].push(subType)
         }
-        util.send(res, result)
+        res.send(result)
     }
     catch(e){
-        util.errSend(res, e)
+        next(e)
     }
 }
 
