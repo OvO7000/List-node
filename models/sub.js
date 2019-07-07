@@ -7,6 +7,7 @@ const schema = {
     originName: String,
     work: { type: mongoose.Schema.ObjectId, required: true },
     info: [ {
+        _id: false,
         name: { type: String, required: true },
         title: { type: String, required: true },
         href: mongoose.Schema.ObjectId,

@@ -25,7 +25,7 @@ function model (name, option, index) {
     const allOption = {
         created_at: {type: Date, default: Date.now()},
         update_at: {type: Date, default: Date.now()},
-        deleted_at: {type: Date, default: Date.now()},
+        deleted_at: {type: Date},
         is_deleted: {type: Boolean, default: false},
         ...option
     }

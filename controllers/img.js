@@ -121,6 +121,13 @@ const add = async (req, res, next) => {
         })
         const result = await Promise.all(saveImg)
 
+        const uploads = await fs.readdir(config.img.path.upload)
+                    .catch((err) => { throw err })
+        // 删除 uploads 文件夹下图片
+        const deleteUploads = uploads.map(item => {
+            fs.unlink(item).catch((err) => { throw err })
+        })
+        await Promise.all(deleteUploads)
         res.send(result)
 
     } catch (e) {

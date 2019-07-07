@@ -67,7 +67,7 @@ const index = async (req, res, next) =>{
         // 查找 subType
         const subType = await Type.findById(value.subType)
             .catch(err => Promise.reject(err))
-        if (!subType) {
+        if (!subType || subType.is_deleted) {
             const err = new Error()
             err.msg = '没有找到subType'
             err.code = '406'
@@ -75,7 +75,11 @@ const index = async (req, res, next) =>{
         }
         let result = []
         // 统计 work
-        const count = await Work.count({subType: value.subType})
+        let conditions = {
+            subType: value.subType,
+            is_deleted: false
+        }
+        const count = await Work.count(conditions)
             .catch(err => Promise.reject(err))
         // work 数量为 0, 返回空数组
         if (count === 0 || value.count >= count) {
@@ -84,13 +88,10 @@ const index = async (req, res, next) =>{
         }
         // work 数量不为 0
         // 查找 works
-        let conditions = {
-            subType: value.subType,
-        }
         let options = {
             skip: value.count,
             sort: {
-                rank: 1,
+                rank: -1,
                 update_at: -1
             },
             limit: config.pagination
@@ -117,21 +118,21 @@ const index = async (req, res, next) =>{
                 sub: [],
                 imgs: []
             }
-            subs.forEach((item, index) => {
+            subs.filter(item => item.is_deleted === false)
+                .forEach((item, index) => {
                 const sub = {
                     id: item._id,
                     name: item.name,
                 }
                 item.originName && (sub.originName = item.originName)
                 item.info && (sub.info = item.info)
-                item.tag && (sub.info = item.tag)
+                item.tag && item.tag.length && (sub.info = item.tag)
                 result.sub.push(sub)
             })
             // 查找图片
             const promises = subs.filter(item => !!item.img).map(async (item, index) => {
-                const img = await Img.findOne({id: item.img})
+                const img = await Img.findById(item.img)
                     .catch(err => Promise.reject(err))
-
                 if (img) {
                     return {
                         id: img._id,
@@ -139,20 +140,81 @@ const index = async (req, res, next) =>{
                     }
                 }
             })
-
             const imgs = await Promise.all(promises)
             result.imgs = imgs
             return result
         })
-
         result = await Promise.all(promises)
-
         res.send(result)
 
     } catch (e) {
         next(e)
     }
+}
 
+
+const del = async (req, res, next) => {
+    try {
+        const value = await joi.validate(req.params, schema.work.del)
+            .catch(err => {
+                err.msg = '请求数据错误'
+                err.code = '406'
+                throw err
+            })
+
+        const work = await Work.findById(value.id)
+            .catch(err => Promise.reject(err))
+
+        if (!work || work.is_deleted) {
+            const err = new Error()
+            err.msg = '没有找到work'
+            err.code = '406'
+            throw err
+        }
+        // 删除 work
+        const option = {
+            is_deleted: true,
+            update_at: Date.now(),
+            deleted_at: Date.now(),
+        }
+        const result = await Work.findByIdAndUpdate(work._id, option)
+            .catch((err) => {throw err})
+        let conditions = {
+            work: work._id,
+            is_deleted: false
+        }
+        const subs = await Sub.find(conditions)
+            .catch(err => Promise.reject(err))
+        // 删除 subs
+        if (subs && subs.length) {
+            const delSubs = subs.map(async (sub) => {
+                const option = {
+                    is_deleted: true,
+                    update_at: Date.now(),
+                    deleted_at: Date.now(),
+                }
+                const result = await Sub.findByIdAndUpdate(sub._id, option)
+                    .catch((err) => {throw err})
+                // 删除 img
+                if (sub.img) {
+                    const option = {
+                        is_deleted: true,
+                        update_at: Date.now(),
+                        deleted_at: Date.now(),
+                    }
+                    const result = await Img.findByIdAndUpdate(sub.img, option)
+                        .catch((err) => {throw err})
+                }
+                return sub._id
+            })
+
+            const result = await Promise.all(delSubs)
+        }
+
+        res.send(work._id)
+    } catch (e) {
+        next(e)
+    }
 
 }
 
@@ -165,6 +227,7 @@ const test = async (req, res, next) => {
 
 module.exports = {
     add,
-    index
+    index,
+    del
 }
 
