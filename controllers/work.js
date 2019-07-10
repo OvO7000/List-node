@@ -106,7 +106,7 @@ const index = async (req, res, next) =>{
         let promises = works.map(async (work, index) => {
             let options = {
                 sort: {
-                    update_at: -1
+                    update_at: 1
                 }
             }
             const subs = await Sub.find({work: work._id}, null, options)
@@ -125,7 +125,7 @@ const index = async (req, res, next) =>{
                     name: item.name,
                 }
                 item.originName && (sub.originName = item.originName)
-                item.info && (sub.info = item.info)
+                item.info && item.info.length && (sub.info = item.info)
                 item.tag && item.tag.length && (sub.info = item.tag)
                 result.sub.push(sub)
             })
@@ -136,6 +136,7 @@ const index = async (req, res, next) =>{
                 if (img) {
                     return {
                         id: img._id,
+                        sub: item._id,
                         compressed: config.url.img + '/' + img.path
                     }
                 }
@@ -175,7 +176,7 @@ const del = async (req, res, next) => {
         const option = {
             is_deleted: true,
             update_at: Date.now(),
-            deleted_at: Date.now(),
+            deleted_at: Date.now()
         }
         const result = await Work.findByIdAndUpdate(work._id, option)
             .catch((err) => {throw err})
@@ -191,7 +192,7 @@ const del = async (req, res, next) => {
                 const option = {
                     is_deleted: true,
                     update_at: Date.now(),
-                    deleted_at: Date.now(),
+                    deleted_at: Date.now()
                 }
                 const result = await Sub.findByIdAndUpdate(sub._id, option)
                     .catch((err) => {throw err})
@@ -200,7 +201,7 @@ const del = async (req, res, next) => {
                     const option = {
                         is_deleted: true,
                         update_at: Date.now(),
-                        deleted_at: Date.now(),
+                        deleted_at: Date.now()
                     }
                     const result = await Img.findByIdAndUpdate(sub.img, option)
                         .catch((err) => {throw err})
