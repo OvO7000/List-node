@@ -18,6 +18,7 @@ const config = {
             upload: 'assets/upload/',
             work: 'assets/imgs/work',
             figure: 'assets/imgs/figure',
+            all: 'assets/imgs'
         },
         length: 20
     },

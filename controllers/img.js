@@ -12,8 +12,7 @@ const schema = require('../lib/schema')
 const config = require('../config/config')
 
 
-const add = async (req, res, next) => {
-    console.log(req.body)
+const addWorkImgs = async (req, res, next) => {
     try {
         const value = await joi.validate(req.body, schema.img.add)
             .catch((err) => {
@@ -21,40 +20,6 @@ const add = async (req, res, next) => {
                 err.code = '406'
                 throw err
             })
-
-        // 删除所有旧图片
-        // const deleteImg = value.ids.map(async (id, index) => {
-        //     const sub = await Sub.findById(id)
-        //         .catch((err) => { throw err })
-        //     if (!sub) {
-        //         const err = new Error()
-        //         err.msg = '没有找到Sub'
-        //         err.code = 406
-        //         throw err
-        //     }
-        //     if (sub.img) {
-        //         const oldImg = await Img.findById(sub.img)
-        //             .catch((err) => { throw err })
-        //         if (!oldImg) {
-        //             // 这段之后需要删除
-        //             const err = new Error()
-        //             err.msg = '没有找到OldImg'
-        //             err.code = 406
-        //             throw err
-        //         }
-        //         const remove = await fs.unlink(oldImg.path)
-        //             .catch((err) => { throw err })
-        //         util.log(remove)
-        //         const option = {
-        //             is_deleted: true,
-        //             update_at: Date.now(),
-        //             deleted_at: Date.now(),
-        //         }
-        //         await Img.findByIdAndUpdate(sub.img, option)
-        //             .catch((err) => { throw err })
-        //     }
-        // }
-
         const saveImg = value.ids.map(async (id, index) => {
             // 查找 sub
             const sub = await Sub.findById(id)
@@ -136,6 +101,28 @@ const add = async (req, res, next) => {
 
 }
 
+const del = async (req, res, next) => {
+    const value = await joi.validate(req.body, schema.img.del)
+        .catch((err) => {
+            err.msg = 'img数据错误'
+            err.code = '406'
+            throw err
+        })
+    const conditions = {
+        is_deleted: true,
+        update_at: Date.now(),
+        deleted_at: Date.now()
+    }
+    let img = await Img.findByIdAndUpdate(value.id, conditions)
+        .catch((err) => { throw err })
+    let sub = await Sub.findOneAndUpdate({img: value.id}, {$unset:{img: ''}})
+        .catch((err) => { throw err })
+    let result = await fs.unlink(config.img.path.all + img.path)
+        .catch((err) => { throw err })
+    res.send(img._id)
+}
+
 module.exports = {
-    add
+    addWorkImgs,
+    del
 }
