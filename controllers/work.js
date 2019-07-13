@@ -39,12 +39,11 @@ const add = async (req, res, next) => {
             .catch(err => Promise.reject(err))
 
         // 保存sub
-        let promises = value.sub.map(async item => {
+        let promises = value.sub.map(async (item, index) => {
 
-            let option = item
-            option.work = work._id
-
-            let sub = await Sub.create(option)
+            item.work = work._id
+            item.sort = index
+            let sub = await Sub.create(item)
                 .catch(err => Promise.reject(err))
             return sub._id
         })
@@ -59,6 +58,7 @@ const add = async (req, res, next) => {
 const edit = async (req, res, next) => {
     try {
         // 检查上传数据
+        req.body.id = req.params.id
         const value = await joi.validate(req.body, schema.work.edit)
             .catch(err => {
                 err.msg = 'work数据错误'
@@ -169,12 +169,16 @@ const index = async (req, res, next) => {
         }
         // 查找 sub
         let promises = works.map(async (work, index) => {
+            let conditions = {
+                work: work._id,
+                is_deleted: false
+            }
             let options = {
                 sort: {
-                    update_at: 1
+                    sort: 1
                 }
             }
-            const subs = await Sub.find({work: work._id}, null, options)
+            const subs = await Sub.find(conditions, null, options)
                 .catch(err => Promise.reject(err))
             if (!subs) return
             const result = {

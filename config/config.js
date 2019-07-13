@@ -13,7 +13,7 @@ const config = {
     },
     img: {
         // 2M, 2*1024*1024
-        size: 2097152,
+        size: 2*1024*1024,
         path: {
             upload: 'assets/upload/',
             work: 'assets/imgs/work',

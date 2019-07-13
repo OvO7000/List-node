@@ -14,6 +14,7 @@ const schema = {
     } ],
     // 0: 'alert', 1: 'not perfect complete', 2: 'rotten', 3: 'serials'
     tag: [ Number ],
+    sort: { type: Number, required: true },
     img: mongoose.Schema.ObjectId,
     secret: { type: Boolean, default: false }
 }

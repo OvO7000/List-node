@@ -29,18 +29,26 @@ const add = async (req, res, next) => {
             err.code = '406'
             throw err
         }
+        let conditions = {
+            work: work._id,
+            is_deleted: false
+        }
+        let subCount = await Sub.count(conditions)
+            .catch((err) => {throw err})
+
         // 保存 sub
         let data = {
             name: value.name,
             secret: value.secret,
-            work: value.work
+            work: value.work,
+            sort: subCount
         }
         value.originName && (data.originName = value.originName)
         const sub = await Sub.create(data)
             .catch(err => Promise.reject(err))
 
         // 更新 work
-        const conditions = {
+        conditions = {
             update_at: Date.now(),
             secret: false
         }

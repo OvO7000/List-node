@@ -11,6 +11,7 @@ const files = config.img.length
 const storage = multer.diskStorage({
     destination: upload,
     filename: function (req, file, cb) {
+        console.log(file)
         cb(null, Date.now() + '-' + file.originalname)
     }
 })

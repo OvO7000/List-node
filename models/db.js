@@ -23,11 +23,11 @@ mongoose.connect(url, config)
 function model (name, option, index) {
     // 添加默认字段
     const allOption = {
+        ...option,
         created_at: {type: Date, default: Date.now()},
         update_at: {type: Date, default: Date.now()},
         deleted_at: {type: Date},
-        is_deleted: {type: Boolean, default: false},
-        ...option
+        is_deleted: {type: Boolean, default: false}
     }
     const schema = new mongoose.Schema(allOption)
 
