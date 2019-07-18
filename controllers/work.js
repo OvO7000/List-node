@@ -43,6 +43,7 @@ const add = async (req, res, next) => {
 
             item.work = work._id
             item.sort = index
+            item.subType = subType._id
             let sub = await Sub.create(item)
                 .catch(err => Promise.reject(err))
             return sub._id

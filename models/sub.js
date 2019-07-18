@@ -5,6 +5,7 @@ const name = 'Sub'
 const schema = {
     name: { type: String, required: true },
     originName: String,
+    subType: { type: mongoose.Schema.ObjectId, required: true },
     work: { type: mongoose.Schema.ObjectId, required: true },
     info: [ {
         _id: false,

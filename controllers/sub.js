@@ -11,6 +11,13 @@ const util = require('../lib/util')
 const schema = require('../lib/schema')
 const config = require('../config/config')
 
+/**
+ * 添加 sub
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<void>}
+ */
 const add = async (req, res, next) => {
     try {
         // 检查上传数据
@@ -40,6 +47,7 @@ const add = async (req, res, next) => {
         let data = {
             name: value.name,
             secret: value.secret,
+            subType: work.subType,
             work: value.work,
             sort: subCount
         }
@@ -61,6 +69,13 @@ const add = async (req, res, next) => {
     }
 }
 
+/**
+ * 删除 sub
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<void>}
+ */
 const del = async (req, res, next) => {
     try {
         const value = await joi.validate(req.body, schema.sub.del)
@@ -123,6 +138,68 @@ const del = async (req, res, next) => {
 
 }
 
+/**
+ * 获取 sub 列表
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<void>}
+ */
+const index = async (req, res, next) => {
+    try {
+        // 检查上传数据
+        const value = await joi.validate(req.query, schema.sub.add)
+            .catch(err => {
+                err.msg = 'work数据错误'
+                err.code = '406'
+                throw err
+            })
+
+        let type = await Type.findById(value.subType)
+            .catch(err => Promise.reject(err))
+
+        let reg = `/${value.query}/`
+        let conditions = {
+            $or: [
+                { name: {$regex: reg} },
+                { originName: {$regex: reg}},
+                { info: {
+                    $elemMatch: {
+                        name: {$regex: reg}
+                    }
+                }}
+            ],
+            is_deleted: false
+        }
+        let options = {
+            sort: {
+                update_at: -1
+            }
+        }
+        let subs = await Sub.find(conditions, null, options)
+            .catch((err) => {throw err})
+
+        let subsPromise = subs.map(async(sub, index) => {
+            let item = {
+                name: sub.name,
+            }
+            sub.originName && (item.originName = sub.originName)
+            sub.info && sub.info.length && (item.info = sub.info)
+            sub.tag && sub.tag.length && (item.tag = sub.tag)
+            if (sub.img) {
+                let image = await Image.findById(sub.img)
+                    .catch((err) => {throw err})
+                item.img = `${config.url.img}/${image.path}`
+            }
+            return item
+        })
+        let result = await Promise.all(subsPromise)
+        res.send(subs)
+    } catch(e) {
+        next(e)
+    }
+}
+
 
 const test = async (req, res, next) => {
     util.log(req.body.img)
@@ -132,6 +209,7 @@ const test = async (req, res, next) => {
 
 module.exports = {
     add,
-    del
+    del,
+    index
 }
 
