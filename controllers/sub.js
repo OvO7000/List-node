@@ -148,7 +148,7 @@ const del = async (req, res, next) => {
 const index = async (req, res, next) => {
     try {
         // 检查上传数据
-        const value = await joi.validate(req.query, schema.sub.add)
+        const value = await joi.validate(req.query, schema.sub.index)
             .catch(err => {
                 err.msg = 'work数据错误'
                 err.code = '406'
@@ -158,14 +158,14 @@ const index = async (req, res, next) => {
         let type = await Type.findById(value.subType)
             .catch(err => Promise.reject(err))
 
-        let reg = `/${value.query}/`
+        let reg = value.query
         let conditions = {
             $or: [
-                { name: {$regex: reg} },
-                { originName: {$regex: reg}},
+                { name: {$regex: reg, $options: '$i'} },
+                { originName: {$regex: reg, $options: '$i'}},
                 { info: {
                     $elemMatch: {
-                        name: {$regex: reg}
+                        name: {$regex: reg, $options: '$i'}
                     }
                 }}
             ],
@@ -180,6 +180,7 @@ const index = async (req, res, next) => {
             .catch((err) => {throw err})
 
         let subsPromise = subs.map(async(sub, index) => {
+            util.log(sub)
             let item = {
                 name: sub.name,
             }
@@ -187,14 +188,14 @@ const index = async (req, res, next) => {
             sub.info && sub.info.length && (item.info = sub.info)
             sub.tag && sub.tag.length && (item.tag = sub.tag)
             if (sub.img) {
-                let image = await Image.findById(sub.img)
+                let image = await Img.findById(sub.img)
                     .catch((err) => {throw err})
                 item.img = `${config.url.img}/${image.path}`
             }
             return item
         })
         let result = await Promise.all(subsPromise)
-        res.send(subs)
+        res.send(result)
     } catch(e) {
         next(e)
     }
