@@ -169,6 +169,7 @@ const index = async (req, res, next) => {
                     }
                 }}
             ],
+            subType: value.subType,
             is_deleted: false
         }
         let options = {
@@ -180,9 +181,10 @@ const index = async (req, res, next) => {
             .catch((err) => {throw err})
 
         let subsPromise = subs.map(async(sub, index) => {
-            util.log(sub)
             let item = {
+                id: sub._id,
                 name: sub.name,
+                subType: sub.subType
             }
             sub.originName && (item.originName = sub.originName)
             sub.info && sub.info.length && (item.info = sub.info)

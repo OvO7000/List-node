@@ -30,6 +30,19 @@ const add = async (req, res, next) => {
             err.code = '406'
             throw err
         }
+        // 检查 work
+        let workResults
+        if (value.work && value.work.length > 0) {
+            let workPromises = value.work.filter(async(workID, index) => {
+                let work = Sub.findById(workID)
+                    .catch(err => Promise.reject(err))
+                if (work) {
+                    return true
+                }
+            })
+            workResults = await Promise.all(workPromises)
+                .catch(err => Promise.reject(err))
+        }
         // 保存 figure
         let data = {
             name: value.name,
@@ -38,6 +51,8 @@ const add = async (req, res, next) => {
             secret: value.secret,
             link: value.link
         }
+        workResults && workResults.length && (data.work = workResults)
+
         const figure = await Figure.create(data)
             .catch(err => Promise.reject(err))
 
@@ -64,7 +79,7 @@ const index = async (req, res, next) => {
             err.code = '406'
             throw err
         }
-        let result = []
+        let results = []
         // 统计 work
         let conditions = {
             subType: value.subType,
@@ -74,7 +89,7 @@ const index = async (req, res, next) => {
             .catch(err => Promise.reject(err))
         // figure 数量为 0, 返回空数组
         if (count === 0 || value.count >= count) {
-            res.send(result)
+            res.send(results)
             return next()
         }
         // figure 数量不为 0
@@ -89,19 +104,64 @@ const index = async (req, res, next) => {
         const figures = await Figure.find(conditions, null, options)
             .catch(err => Promise.reject(err))
         if (!figures) {
-            res.send(result)
+            res.send(results)
             return next()
         }
-        for (let figure of figures) {
-            let item = {
+        // 整理返回数据
+        let getResults = figures.map(async(figure, index) => {
+            console.log(figure)
+            let result = {
                 id: figure._id,
                 name: figure.name
             }
-            figure.originName && (item.originName = figure.originName)
-            figure.link && figure.link.length && (item.link = figure.link)
-            result.push(item)
-        }
-        res.send(result)
+            figure.originName && (result.originName = figure.originName)
+            figure.link && figure.link.length && (result.link = figure.link)
+            // 查找 sub
+            if (figure.work && figure.work.length > 0) {
+                let imgs = []
+                let subs = []
+                let getSubs = figure.work.map(async(subID, index) => {
+                    let sub = await Sub.findById(subID)
+                        .catch(err => Promise.reject(err))
+                    if (sub && sub.is_deleted === false) {
+                        // 查找图片
+                        if (sub.img) {
+                            let img = await Img.findById(sub.img)
+                                .catch(err => Promise.reject(err))
+                            if (img && img.is_deleted === false) {
+                                imgs.push({
+                                    compressed: `${config.url.img}/${img.path}`,
+                                    id: img._id,
+                                    sub: sub._id
+                                })
+                            }
+                        }
+                        let subType
+                        if (sub.subType) {
+                            subType = await Type.findById(sub.subType)
+                                .catch(err => Promise.reject(err))
+                        }
+                        console.log(subType)
+                        return {
+                            id: sub._id,
+                            name: sub.name,
+                            title: subType.subType.name
+                        }
+                    }
+                })
+                subs = await Promise.all(getSubs)
+                    .catch(err => Promise.reject(err))
+
+                subs && subs.length && (result.work = subs)
+                imgs && imgs.length && (result.imgs = imgs)
+            }
+
+            return result
+        })
+        results = await Promise.all(getResults)
+            .catch(err => Promise.reject(err))
+
+        res.send(results)
     } catch(e) {
         next(e)
     }
