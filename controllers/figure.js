@@ -62,6 +62,70 @@ const add = async (req, res, next) => {
     }
 }
 
+const edit = async (req, res, next) => {
+    try {
+        // 检查上传数据
+        const value = await joi.validate(req.body, schema.figure.edit)
+            .catch(err => {
+                err.msg = 'work数据错误'
+                err.code = '406'
+                throw err
+            })
+        // 检查 figure 是否存在
+        let figure = await Figure.findById(value.id)
+            .catch(err => Promise.reject(err))
+        if (!figure || figure.is_deleted === true) {
+            const err = new Error()
+            err.msg = '没有找到figure'
+            err.code = '406'
+            throw err
+        }
+        // 保存 figure
+        if (hasChange(figure, value)) {
+            let workPromises =  value.work.filter(async workID => {
+                let work = await Sub.findById(workID)
+                    .catch(err => Promise.reject(err))
+                if(work || work.is_deleted === false) {
+                    return true
+                }
+            })
+            let works = await Promise.all(workPromises)
+                .catch(err => Promise.reject(err))
+
+            // figure.name = value.name
+            // figure.secret = value.secret
+            // figure.work = (works && works.length) ? works : []
+            // figure.link = (value.link && value.link.length) ? value.link : []
+            // if (value.originName) {
+            //     figure.originName = value.originName
+            // } else {
+            //     delete figure.originName
+            // }
+            // figure.update_at = Date.now()
+            // figure = await figure.save()
+            //     .catch(err => Promise.reject(err))
+            let conditions = {
+                name: value.name,
+                secret: value.secret,
+                work: (works && works.length > 0) ? works : [],
+                tag: (value.tag && value.tag.length > 0) ? value.tag : [],
+                update_at: Date.now()
+            }
+            if (value.originName) {
+                conditions.originName = value.originName
+            } else {
+                conditions.$unset = { originName : '' }
+            }
+            figure = await Figure.findByIdAndUpdate(value.id, conditions)
+                .catch(err => Promise.reject(err))
+        }
+        res.send(figure._id)
+    } catch (e) {
+        next(e)
+    }
+}
+
+
 const index = async (req, res, next) => {
     try {
         const value = await joi.validate(req.query, schema.figure.index)
@@ -198,9 +262,52 @@ const del = async (req, res, next) => {
     }
 }
 
+function hasChange(figure, item) {
+    if (item.name !== figure.name || item.originName !== figure.originName || item.secret !== figure.secret) {
+        return true
+    }
+    // work
+    if (item.work) {
+        if (figure.work.length !== item.work.length) {
+            return true
+        } else {
+            figure.work.sort()
+            item.work.sort()
+            figure.work.forEach((work, index) => {
+                if (work !== item.work[index]) {
+                    return true
+                }
+            })
+        }
+    }
+    if (!item.work && figure.work.length !== 0) {
+        return true
+    }
+    // link
+    if (item.link) {
+        if (figure.link.length !== item.link.length) {
+            return true
+        } else {
+            figure.link.sort()
+            item.link.sort()
+            figure.link.forEach((link, index) => {
+                if (link.name !== item.link[index].name || link.title !== item.link[index].href) {
+                    return true
+                }
+            })
+        }
+    }
+    if (!item.link && figure.link.length !== 0) {
+        return true
+    }
+
+    return false
+}
+
 module.exports = {
     add,
     del,
-    index
+    index,
+    edit
 }
 

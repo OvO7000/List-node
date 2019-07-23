@@ -59,7 +59,6 @@ const add = async (req, res, next) => {
 const edit = async (req, res, next) => {
     try {
         // 检查上传数据
-        req.body.id = req.params.id
         const value = await joi.validate(req.body, schema.work.edit)
             .catch(err => {
                 err.msg = 'work数据错误'
@@ -69,7 +68,7 @@ const edit = async (req, res, next) => {
         // 检查 work 是否存在
         let work = await Work.findById(value.id)
             .catch(err => Promise.reject(err))
-        if (!work) {
+        if (!work || work.is_deleted === true) {
             const err = new Error()
             err.msg = '没有找到work'
             err.code = '406'
@@ -94,6 +93,11 @@ const edit = async (req, res, next) => {
                     info: item.info ? item.info : [],
                     tag: item.tag ? item.tag : [],
                     update_at: Date.now()
+                }
+                if (item.originName) {
+                    conditions.originName = item.originName
+                } else {
+                    conditions.$unset = { originName : '' }
                 }
                 let sub = await Sub.findByIdAndUpdate(item.id, conditions)
                     .catch(err => Promise.reject(err))
