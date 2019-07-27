@@ -1,6 +1,4 @@
-const express = require('express')
 const joi = require('@hapi/joi')
-const fs = require('fs')
 
 const Sub = require('../models/sub')
 const Img = require('../models/img')
@@ -20,6 +18,13 @@ const config = require('../config/config')
  */
 const add = async (req, res, next) => {
     try {
+        // 检查权限
+        if (!req.role || req.role.level !== 2) {
+            const err = new Error()
+            err.msg = '没有权限'
+            err.code = '406'
+            throw err
+        }
         // 检查上传数据
         const value = await joi.validate(req.body, schema.sub.add)
             .catch(err => {
@@ -78,6 +83,13 @@ const add = async (req, res, next) => {
  */
 const del = async (req, res, next) => {
     try {
+        // 检查权限
+        if (!req.role || req.role.level !== 2) {
+            const err = new Error()
+            err.msg = '没有权限'
+            err.code = '406'
+            throw err
+        }
         const value = await joi.validate(req.body, schema.sub.del)
             .catch(err => {
                 err.msg = '请求数据错误'
@@ -147,6 +159,12 @@ const del = async (req, res, next) => {
  */
 const index = async (req, res, next) => {
     try {
+        if (!req.role || req.role.level !== 2) {
+            const err = new Error()
+            err.msg = '没有权限'
+            err.code = '406'
+            throw err
+        }
         // 检查上传数据
         const value = await joi.validate(req.query, schema.sub.index)
             .catch(err => {
@@ -171,6 +189,9 @@ const index = async (req, res, next) => {
             ],
             subType: value.subType,
             is_deleted: false
+        }
+        if (!req.role || req.role.level < 1) {
+            conditions.secret = false
         }
         let options = {
             sort: {
@@ -202,13 +223,6 @@ const index = async (req, res, next) => {
         next(e)
     }
 }
-
-
-const test = async (req, res, next) => {
-    util.log(req.body.img)
-    util.send(res, 'success')
-}
-
 
 module.exports = {
     add,

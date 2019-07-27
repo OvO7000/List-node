@@ -25,7 +25,9 @@ const config = {
     url: {
         app: 'http://list.ovo7.cn',
         img: 'http://img.list.ovo7.cn'
-    }
+    },
+    saltRounds: 10,
+    expireTime: 20 * 60 *60
 }
 
 module.exports = config

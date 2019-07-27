@@ -1,19 +1,31 @@
-const express = require('express')
 const joi = require('@hapi/joi')
-const fs = require('fs')
 
 const Sub = require('../models/sub')
 const Img = require('../models/img')
 const Type = require('../models/type')
-const Work = require('../models/work')
 const Figure = require('../models/figure')
 
 const util = require('../lib/util')
 const schema = require('../lib/schema')
 const config = require('../config/config')
 
+/**
+ * 添加 figure
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<void>}
+ */
 const add = async (req, res, next) => {
     try {
+        // 检查权限
+        if (!req.role || req.role.level !== 2) {
+            const err = new Error()
+            err.msg = '没有权限'
+            err.code = '406'
+            throw err
+        }
+
         // 检查上传数据
         const value = await joi.validate(req.body, schema.figure.add)
             .catch(err => {
@@ -62,8 +74,22 @@ const add = async (req, res, next) => {
     }
 }
 
+/**
+ * 编辑 figure
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<void>}
+ */
 const edit = async (req, res, next) => {
     try {
+        // 检查权限
+        if (!req.role || req.role.level !== 2) {
+            const err = new Error()
+            err.msg = '没有权限'
+            err.code = '406'
+            throw err
+        }
         // 检查上传数据
         const value = await joi.validate(req.body, schema.figure.edit)
             .catch(err => {
@@ -125,7 +151,13 @@ const edit = async (req, res, next) => {
     }
 }
 
-
+/**
+ * 获取 figure 列表
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<*>}
+ */
 const index = async (req, res, next) => {
     try {
         const value = await joi.validate(req.query, schema.figure.index)
@@ -148,6 +180,9 @@ const index = async (req, res, next) => {
         let conditions = {
             subType: value.subType,
             is_deleted: false
+        }
+        if (!req.role || req.role.level < 1) {
+            conditions.secret = false
         }
         const count = await Figure.count(conditions)
             .catch(err => Promise.reject(err))
@@ -231,8 +266,22 @@ const index = async (req, res, next) => {
     }
 }
 
+/**
+ * 删除 figure
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<void>}
+ */
 const del = async (req, res, next) => {
     try {
+        // 检查权限
+        if (!req.role || req.role.level !== 2) {
+            const err = new Error()
+            err.msg = '没有权限'
+            err.code = '406'
+            throw err
+        }
         const value = await joi.validate(req.params, schema.figure.del)
             .catch(err => {
                 err.msg = '请求数据错误'
@@ -262,6 +311,12 @@ const del = async (req, res, next) => {
     }
 }
 
+/**
+ * 编辑 figure 时，判断 figure 是否变化
+ * @param figure
+ * @param item
+ * @returns {boolean}
+ */
 function hasChange(figure, item) {
     if (item.name !== figure.name || item.originName !== figure.originName || item.secret !== figure.secret) {
         return true

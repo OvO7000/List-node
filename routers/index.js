@@ -3,6 +3,7 @@ const workRouter =require('./work')
 const imgRouter =require('./img')
 const subRouter =require('./sub')
 const figureRouter =require('./figure')
+const userRouter =require('./user')
 
 module.exports = app => {
     app.use('/api/type', typeRouter)
@@ -10,4 +11,5 @@ module.exports = app => {
     app.use('/api/img', imgRouter)
     app.use('/api/sub', subRouter)
     app.use('/api/figure', figureRouter)
+    app.use('/api/user', userRouter)
 }

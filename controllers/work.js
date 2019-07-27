@@ -1,6 +1,4 @@
-const express = require('express')
 const joi = require('@hapi/joi')
-const fs = require('fs')
 
 const Sub = require('../models/sub')
 const Img = require('../models/img')
@@ -11,8 +9,22 @@ const util = require('../lib/util')
 const schema = require('../lib/schema')
 const config = require('../config/config')
 
+/**
+ * 添加 work
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<void>}
+ */
 const add = async (req, res, next) => {
     try {
+        // 检查权限
+        if (!req.role || req.role.level !== 2) {
+            const err = new Error()
+            err.msg = '没有权限'
+            err.code = '406'
+            throw err
+        }
         // 检查上传数据
         const value = await joi.validate(req.body, schema.work.add)
             .catch(err => {
@@ -56,8 +68,22 @@ const add = async (req, res, next) => {
     }
 }
 
+/**
+ * 编辑 work
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<void>}
+ */
 const edit = async (req, res, next) => {
     try {
+        // 检查权限
+        if (!req.role || req.role.level !== 2) {
+            const err = new Error()
+            err.msg = '没有权限'
+            err.code = '406'
+            throw err
+        }
         // 检查上传数据
         const value = await joi.validate(req.body, schema.work.edit)
             .catch(err => {
@@ -126,6 +152,13 @@ const edit = async (req, res, next) => {
     }
 }
 
+/**
+ * 获取 work 列表
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<*>}
+ */
 const index = async (req, res, next) => {
     try {
         const value = await joi.validate(req.query, schema.work.index)
@@ -148,6 +181,9 @@ const index = async (req, res, next) => {
         let conditions = {
             subType: value.subType,
             is_deleted: false
+        }
+        if (!req.role || req.role.level < 1) {
+            conditions.secret = false
         }
         const count = await Work.count(conditions)
             .catch(err => Promise.reject(err))
@@ -227,9 +263,22 @@ const index = async (req, res, next) => {
     }
 }
 
-
+/**
+ * 删除 work
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<void>}
+ */
 const del = async (req, res, next) => {
     try {
+        // 检查权限
+        if (!req.role || req.role.level !== 2) {
+            const err = new Error()
+            err.msg = '没有权限'
+            err.code = '406'
+            throw err
+        }
         const value = await joi.validate(req.params, schema.work.del)
             .catch(err => {
                 err.msg = '请求数据错误'
@@ -297,12 +346,6 @@ const del = async (req, res, next) => {
         next(e)
     }
 
-}
-
-
-const test = async (req, res, next) => {
-    util.log(req.body.img)
-    util.send(res, 'success')
 }
 
 function hasChange(sub, item) {

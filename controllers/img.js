@@ -11,9 +11,22 @@ const util = require('../lib/util')
 const schema = require('../lib/schema')
 const config = require('../config/config')
 
-
+/**
+ * 新增 work 时，添加多个 img
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<void>}
+ */
 const adds = async (req, res, next) => {
     try {
+        // 检查权限
+        if (!req.role || req.role.level !== 2) {
+            const err = new Error()
+            err.msg = '没有权限'
+            err.code = '406'
+            throw err
+        }
         const value = await joi.validate(req.body, schema.img.adds)
             .catch((err) => {
                 err.msg = 'img数据错误'
@@ -119,36 +132,68 @@ const adds = async (req, res, next) => {
 
 }
 
+/**
+ * 删除 img
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<void>}
+ */
 const del = async (req, res, next) => {
-    const value = await joi.validate(req.params, schema.img.del)
-        .catch((err) => {
-            err.msg = 'img数据错误'
+    try {
+        // 检查权限
+        if (!req.role || req.role.level !== 2) {
+            const err = new Error()
+            err.msg = '没有权限'
             err.code = '406'
             throw err
-        })
-    const conditions = {
-        is_deleted: true,
-        update_at: Date.now(),
-        deleted_at: Date.now()
-    }
-    let img = await Img.findByIdAndUpdate(value.id, conditions)
-        .catch((err) => {
-            throw err
-        })
-    let sub = await Sub.findOneAndUpdate({img: value.id}, {$unset: {img: ''}})
-        .catch((err) => {
-            throw err
-        })
-    await fs.unlink(`${config.img.path.all}/${img.path}`)
-        .catch((err) => {
-            throw err
-        })
+        }
+        const value = await joi.validate(req.params, schema.img.del)
+            .catch((err) => {
+                err.msg = 'img数据错误'
+                err.code = '406'
+                throw err
+            })
+        const conditions = {
+            is_deleted: true,
+            update_at: Date.now(),
+            deleted_at: Date.now()
+        }
+        let img = await Img.findByIdAndUpdate(value.id, conditions)
+            .catch((err) => {
+                throw err
+            })
+        let sub = await Sub.findOneAndUpdate({img: value.id}, {$unset: {img: ''}})
+            .catch((err) => {
+                throw err
+            })
+        await fs.unlink(`${config.img.path.all}/${img.path}`)
+            .catch((err) => {
+                throw err
+            })
 
-    res.send(img._id)
+        res.send(img._id)
+    } catch (e) {
+        next(e)
+    }
 }
 
+/**
+ * 修改 img
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<void>}
+ */
 const edit = async (req, res, next) => {
     try {
+        // 检查权限
+        if (!req.role || req.role.level !== 2) {
+            const err = new Error()
+            err.msg = '没有权限'
+            err.code = '406'
+            throw err
+        }
         req.body.id = req.params.id
         const value = await joi.validate(req.body, schema.img.edit)
             .catch((err) => {
@@ -209,8 +254,23 @@ const edit = async (req, res, next) => {
         next(e)
     }
 }
+
+/**
+ * 添加单个 img
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<void>}
+ */
 const add = async (req, res, next) => {
     try {
+        // 检查权限
+        if (!req.role || req.role.level !== 2) {
+            const err = new Error()
+            err.msg = '没有权限'
+            err.code = '406'
+            throw err
+        }
         const value = await joi.validate(req.body, schema.img.add)
             .catch((err) => {
                 err.msg = 'img数据错误'
