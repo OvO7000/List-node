@@ -208,9 +208,9 @@ const index = async (req, res, next) => {
         }
         // 整理返回数据
         let getResults = figures.map(async(figure, index) => {
-            console.log(figure)
             let result = {
                 id: figure._id,
+                subType: figure.subType,
                 name: figure.name
             }
             figure.originName && (result.originName = figure.originName)

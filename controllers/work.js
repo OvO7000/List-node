@@ -185,6 +185,11 @@ const index = async (req, res, next) => {
         if (!req.role || req.role.level < 1) {
             conditions.secret = false
         }
+        if (value.rank === 1) {
+            conditions.rank = false
+        } else if (value.rank === 0) {
+            conditions.rank = true
+        }
         const count = await Work.count(conditions)
             .catch(err => Promise.reject(err))
         // work 数量为 0, 返回空数组
@@ -198,7 +203,7 @@ const index = async (req, res, next) => {
             skip: value.count,
             sort: {
                 rank: -1,
-                update_at: -1
+                create_at: -1
             },
             limit: config.pagination
         }
@@ -225,20 +230,20 @@ const index = async (req, res, next) => {
             const result = {
                 id: work._id,
                 rank: work.rank,
+                subType: work.subType,
                 sub: [],
                 imgs: []
             }
-            subs.filter(item => item.is_deleted === false)
-                .forEach((item, index) => {
-                    const sub = {
-                        id: item._id,
-                        name: item.name,
-                    }
-                    item.originName && (sub.originName = item.originName)
-                    item.info && item.info.length && (sub.info = item.info)
-                    item.tag && item.tag.length && (sub.tag = item.tag)
-                    result.sub.push(sub)
-                })
+            subs.forEach((item, index) => {
+                const sub = {
+                    id: item._id,
+                    name: item.name,
+                }
+                item.originName && (sub.originName = item.originName)
+                item.info && item.info.length && (sub.info = item.info)
+                item.tag && item.tag.length && (sub.tag = item.tag)
+                result.sub.push(sub)
+            })
             // 查找图片
             const promises = subs.filter(item => !!item.img).map(async (item, index) => {
                 const img = await Img.findById(item.img)
@@ -256,6 +261,103 @@ const index = async (req, res, next) => {
             return result
         })
         result = await Promise.all(promises)
+        res.send(result)
+
+    } catch (e) {
+        next(e)
+    }
+}
+
+/**
+ * 获取单个 work
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<*>}
+ */
+const single = async (req, res, next) => {
+    try {
+        const value = await joi.validate(req.params, schema.work.single)
+            .catch(err => {
+                err.msg = '请求数据错误'
+                err.code = '406'
+                throw err
+            })
+
+        const sub = await Sub.findById(value.id)
+            .catch(err => Promise.reject(err))
+        if (!sub || sub.is_deleted === true || (sub.secret === true && req.role.level < 1)) {
+            const err = new Error()
+            err.msg = '没有找到 work'
+            err.code = '406'
+            throw err
+        }
+        const work = await Work.findById(sub.work)
+            .catch(err => Promise.reject(err))
+
+        if (!work || work.is_deleted === true || (work.secret === true && req.role.level < 1)) {
+            const err = new Error()
+            err.msg = '没有找到 work'
+            err.code = '406'
+            throw err
+        }
+
+        // 查找 sub
+        let conditions = {
+            work: work._id,
+            is_deleted: false
+        }
+        if (!req.role || req.role.level < 1) {
+            conditions.secret = false
+        }
+        let options = {
+            sort: {
+                sort: 1
+            }
+        }
+        util.log('conditions', conditions)
+
+        const subs = await Sub.find(conditions, null, options)
+            .catch(err => Promise.reject(err))
+        util.log('subs', subs)
+
+        if (!subs || subs.length <= 0) {
+            const err = new Error()
+            err.msg = '没有找到 work'
+            err.code = '406'
+            throw err
+        }
+        const result = {
+            id: work._id,
+            rank: work.rank,
+            subType: work.subType,
+            sub: [],
+            imgs: []
+        }
+        subs.forEach((item, index) => {
+                const sub = {
+                    id: item._id,
+                    name: item.name,
+                }
+                item.originName && (sub.originName = item.originName)
+                item.info && item.info.length && (sub.info = item.info)
+                item.tag && item.tag.length && (sub.tag = item.tag)
+                result.sub.push(sub)
+            })
+        // 查找图片
+        const promises = subs.filter(item => !!item.img).map(async (item, index) => {
+            const img = await Img.findById(item.img)
+                .catch(err => Promise.reject(err))
+            if (img) {
+                return {
+                    id: img._id,
+                    sub: item._id,
+                    compressed: config.url.img + '/' + img.path
+                }
+            }
+        })
+        const imgs = await Promise.all(promises)
+        result.imgs = imgs
         res.send(result)
 
     } catch (e) {
@@ -394,6 +496,7 @@ module.exports = {
     add,
     edit,
     index,
-    del
+    del,
+    single
 }
 
