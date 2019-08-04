@@ -4,6 +4,7 @@ const Sub = require('../models/sub')
 const Img = require('../models/img')
 const Type = require('../models/type')
 const Work = require('../models/work')
+const Figure = require('../models/figure')
 
 const util = require('../lib/util')
 const schema = require('../lib/schema')
@@ -17,136 +18,172 @@ const config = require('../config/config')
  * @returns {Promise<void>}
  */
 const add = async (req, res, next) => {
-    try {
-        // 检查权限
-        if (!req.role || req.role.level !== 2) {
-            const err = new Error()
-            err.msg = '没有权限'
-            err.code = '406'
-            throw err
-        }
-        // 检查上传数据
-        const value = await joi.validate(req.body, schema.sub.add)
-            .catch(err => {
-                err.msg = 'work数据错误'
-                err.code = '406'
-                throw err
-            })
-        // 检查 work 是否存在
-        let work = await Work.findById(value.work)
-            .catch(err => Promise.reject(err))
-        if (!work) {
-            const err = new Error()
-            err.msg = '没有找到work'
-            err.code = '406'
-            throw err
-        }
-        let conditions = {
-            work: work._id,
-            is_deleted: false
-        }
-        let subCount = await Sub.count(conditions)
-            .catch((err) => {throw err})
-
-        // 保存 sub
-        let data = {
-            name: value.name,
-            secret: value.secret,
-            subType: work.subType,
-            work: value.work,
-            sort: subCount
-        }
-        value.originName && (data.originName = value.originName)
-        const sub = await Sub.create(data)
-            .catch(err => Promise.reject(err))
-
-        // 更新 work
-        conditions = {
-            update_at: Date.now(),
-            secret: false
-        }
-        work = await Work.findByIdAndUpdate(value.work, conditions)
-            .catch((err) => {throw err})
-
-        res.send(sub._id)
-    } catch (e) {
-        next(e)
+  try {
+    // 检查权限
+    if (!req.role || req.role.level !== 2) {
+      const err = new Error()
+      err.msg = '没有权限'
+      err.code = '406'
+      throw err
     }
+    // 检查上传数据
+    const value = await joi.validate(req.body, schema.sub.add)
+      .catch(err => {
+        err.msg = 'work数据错误'
+        err.code = '406'
+        throw err
+      })
+    // 检查 work 是否存在
+    let work = await Work.findById(value.work)
+      .catch(err => Promise.reject(err))
+    if (!work) {
+      const err = new Error()
+      err.msg = '没有找到work'
+      err.code = '406'
+      throw err
+    }
+    let conditions = {
+      work: work._id,
+      is_deleted: false
+    }
+    let subCount = await Sub.count(conditions)
+      .catch((err) => {
+        throw err
+      })
+
+    // 保存 sub
+    let data = {
+      name: value.name,
+      secret: value.secret,
+      subType: work.subType,
+      work: value.work,
+      sort: subCount
+    }
+    value.originName && (data.originName = value.originName)
+    const sub = await Sub.create(data)
+      .catch(err => Promise.reject(err))
+
+    // 更新 work
+    conditions = {
+      update_at: Date.now(),
+      secret: false
+    }
+    work = await Work.findByIdAndUpdate(value.work, conditions)
+      .catch((err) => {
+        throw err
+      })
+
+    res.send(sub._id)
+  } catch (e) {
+    next(e)
+  }
 }
 
 /**
- * 删除 sub
+ * 删除单个或多个 sub
  * @param req
  * @param res
  * @param next
  * @returns {Promise<void>}
  */
 const del = async (req, res, next) => {
-    try {
-        // 检查权限
-        if (!req.role || req.role.level !== 2) {
-            const err = new Error()
-            err.msg = '没有权限'
-            err.code = '406'
-            throw err
-        }
-        const value = await joi.validate(req.body, schema.sub.del)
-            .catch(err => {
-                err.msg = '请求数据错误'
-                err.code = '406'
-                throw err
-            })
-
-        const delSubs = value.ids.map(async (sub) => {
-            const option = {
-                is_deleted: true,
-                update_at: Date.now(),
-                deleted_at: Date.now()
-            }
-            const result = await Sub.findByIdAndUpdate(sub._id, option)
-                .catch((err) => {throw err})
-            // 删除 img
-            if (sub.img) {
-                const option = {
-                    is_deleted: true,
-                    update_at: Date.now(),
-                    deleted_at: Date.now()
-                }
-                const result = await Img.findByIdAndUpdate(sub.img, option)
-                    .catch((err) => {throw err})
-            }
-            return sub.work
-        })
-
-        const result = await Promise.all(delSubs)
-        let subs = await Sub.find({work: result[0]}, null, {is_deleted: false})
-            .catch((err) => {throw err})
-        let work = await Work.findById(result[0])
-            .catch((err) => {throw err})
-        if (subs.length === 0) {
-            const option = {
-                is_deleted: true,
-                update_at: Date.now(),
-                deleted_at: Date.now()
-            }
-            const result = await Work.findByIdAndUpdate(result[0], option)
-                .catch((err) => {throw err})
-            res.send(result._id)
-        }
-        let secret = subs.every(item => item.secret === true)
-        if (secret !== work.secret) {
-            const option = {
-                secret: secret,
-                update_at: Date.now()
-            }
-            const result = await Work.findByIdAndUpdate(result[0], option)
-                .catch((err) => {throw err})
-            res.send(result._id)
-        }
-        res.send(result[0])
-    } catch (e) {
-        next(e)
+  try {
+    // 检查权限
+    if (!req.role || req.role.level !== 2) {
+      const err = new Error()
+      err.msg = '没有权限'
+      err.code = '406'
+      throw err
     }
+    const value = await joi.validate(req.body, schema.sub.del)
+      .catch(err => {
+        err.msg = '请求数据错误'
+        err.code = '406'
+        throw err
+      })
+
+    const delSubs = value.ids.map(async (sub) => {
+      const option = {
+        is_deleted: true,
+        update_at: Date.now(),
+        deleted_at: Date.now()
+      }
+      const result = await Sub.findByIdAndUpdate(sub._id, option)
+        .catch((err) => {
+          throw err
+        })
+      // 删除 figure 关联
+      if (sub.figure && sub.figure.length) {
+        let deleteFigureLink = sub.figure.map(async(figureId, figureIndex) => {
+          let figure = Figure.findById(figureId)
+            .catch(err => Promise.reject(err))
+          if (!figure || figure.is_deleted) {
+            return
+          }
+          if (figure.work) {
+            let index = figure.work.indexOf(sub._id)
+            figure.work.splice(index, 1)
+            figure.update_at =Date.now()
+            figure.save()
+              .catch(err => Promise.reject(err))
+          }
+          return figure
+        })
+        let result = await Promise.all(deleteFigureLink)
+          .catch(err => Promise.reject(err))
+      }
+      // 删除 img
+      if (sub.img) {
+        const option = {
+          is_deleted: true,
+          update_at: Date.now(),
+          deleted_at: Date.now()
+        }
+        const result = await Img.findByIdAndUpdate(sub.img, option)
+          .catch((err) => {
+            throw err
+          })
+      }
+      return sub.work
+    })
+
+    const result = await Promise.all(delSubs)
+    let subs = await Sub.find({work: result[0]}, null, {is_deleted: false})
+      .catch((err) => {
+        throw err
+      })
+    let work = await Work.findById(result[0])
+      .catch((err) => {
+        throw err
+      })
+    if (subs.length === 0) {
+      const option = {
+        is_deleted: true,
+        update_at: Date.now(),
+        deleted_at: Date.now()
+      }
+      const result = await Work.findByIdAndUpdate(result[0], option)
+        .catch((err) => {
+          throw err
+        })
+      res.send(result._id)
+    }
+    let secret = subs.every(item => item.secret === true)
+    if (secret !== work.secret) {
+      const option = {
+        secret: secret,
+        update_at: Date.now()
+      }
+      const result = await Work.findByIdAndUpdate(result[0], option)
+        .catch((err) => {
+          throw err
+        })
+      res.send(result._id)
+    }
+    res.send(result[0])
+  } catch (e) {
+    next(e)
+  }
 
 }
 
@@ -158,75 +195,100 @@ const del = async (req, res, next) => {
  * @returns {Promise<void>}
  */
 const index = async (req, res, next) => {
-    try {
-        if (!req.role || req.role.level !== 2) {
-            const err = new Error()
-            err.msg = '没有权限'
-            err.code = '406'
-            throw err
-        }
-        // 检查上传数据
-        const value = await joi.validate(req.query, schema.sub.index)
-            .catch(err => {
-                err.msg = 'work数据错误'
-                err.code = '406'
-                throw err
-            })
-
-        let type = await Type.findById(value.subType)
-            .catch(err => Promise.reject(err))
-
-        let reg = value.query
-        let conditions = {
-            $or: [
-                { name: {$regex: reg, $options: '$i'} },
-                { originName: {$regex: reg, $options: '$i'}},
-                { info: {
-                    $elemMatch: {
-                        name: {$regex: reg, $options: '$i'}
-                    }
-                }}
-            ],
-            subType: value.subType,
-            is_deleted: false
-        }
-        if (!req.role || req.role.level < 1) {
-            conditions.secret = false
-        }
-        let options = {
-            sort: {
-                update_at: -1
-            }
-        }
-        let subs = await Sub.find(conditions, null, options)
-            .catch((err) => {throw err})
-
-        let subsPromise = subs.map(async(sub, index) => {
-            let item = {
-                id: sub._id,
-                name: sub.name,
-                subType: sub.subType
-            }
-            sub.originName && (item.originName = sub.originName)
-            sub.info && sub.info.length && (item.info = sub.info)
-            sub.tag && sub.tag.length && (item.tag = sub.tag)
-            if (sub.img) {
-                let image = await Img.findById(sub.img)
-                    .catch((err) => {throw err})
-                item.img = `${config.url.img}/${image.path}`
-            }
-            return item
-        })
-        let result = await Promise.all(subsPromise)
-        res.send(result)
-    } catch(e) {
-        next(e)
+  try {
+    if (!req.role || req.role.level !== 2) {
+      const err = new Error()
+      err.msg = '没有权限'
+      err.code = '406'
+      throw err
     }
+    // 检查上传数据
+    const value = await joi.validate(req.query, schema.sub.index)
+      .catch(err => {
+        err.msg = 'work数据错误'
+        err.code = '406'
+        throw err
+      })
+
+    let type = await Type.findById(value.subType)
+      .catch(err => Promise.reject(err))
+
+    let reg = value.query
+    let conditions = {
+      $or: [
+        {name: {$regex: reg, $options: '$i'}},
+        {originName: {$regex: reg, $options: '$i'}},
+        {
+          info: {
+            $elemMatch: {
+              name: {$regex: reg, $options: '$i'}
+            }
+          }
+        }
+      ],
+      subType: value.subType,
+      is_deleted: false
+    }
+    if (!req.role || req.role.level < 1) {
+      conditions.secret = false
+    }
+    let options = {
+      sort: {
+        update_at: -1
+      }
+    }
+    let subs = await Sub.find(conditions, null, options)
+      .catch((err) => {
+        throw err
+      })
+
+    let subsPromise = subs.map(async (sub, index) => {
+      let item = {
+        id: sub._id,
+        name: sub.name,
+        subType: sub.subType
+      }
+      sub.originName && (item.originName = sub.originName)
+      sub.info && sub.info.length && (item.info = sub.info)
+      sub.tag && sub.tag.length && (item.tag = sub.tag)
+      if (sub.figure && sub.figure.length) {
+        let getFigures = sub.figure.map(async(figureId, figureIndex) => {
+          // 查找figure
+          let figure = await Figure.findById(figureId)
+            .catch(err => Promise.reject(err))
+          if (!figure || figure.is_deleted) return
+          // 查找subType
+          let subType = await Type.findById(figure.subType)
+            .catch(err => Promise.reject(err))
+          if (!subType || subType.is_deleted) return
+          return {
+            id: figure._id,
+            name: figure.name,
+            title: subType.subType.name
+          }
+        })
+        sub.figure = await Promise.all(getFigures)
+          .catch(err => Promise.reject(err))
+      }
+      if (sub.img) {
+        let image = await Img.findById(sub.img)
+          .catch((err) => {
+            throw err
+          })
+        item.img = `${config.url.img}/${image.path}`
+      }
+      return item
+    })
+    let result = await Promise.all(subsPromise)
+    res.send(result)
+  } catch (e) {
+    next(e)
+  }
 }
 
 module.exports = {
-    add,
-    del,
-    index
+  add,
+  del,
+  index
 }
 

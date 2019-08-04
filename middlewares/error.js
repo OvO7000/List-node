@@ -6,19 +6,19 @@
  * @param next
  */
 function errHandler(err, req, res, next) {
-    console.error('-----------------------')
-    console.error(err)
-    console.error('-----------------------')
-    let result = {
-        msg: '哪里出了问题...'
-    }
-    err.msg && (result.msg = err.msg)
-    err.code && (result.code = err.code)
+  console.error('-----------------------')
+  console.error(err)
+  console.error('-----------------------')
+  let result = {
+    msg: '哪里出了问题...'
+  }
+  err.msg && (result.msg = err.msg)
+  err.code && (result.code = err.code)
 
-    // logger.error(err);
-    res.status(err.code || 500).send(result)
-    // res.send(err.message);
-    next()
+  // logger.error(err);
+  res.status(err.code || 500).send(result)
+  // res.send(err.message);
+  next()
 }
 
 module.exports = errHandler
