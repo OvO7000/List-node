@@ -123,7 +123,7 @@ const del = async (req, res, next) => {
           if (figure.work) {
             let index = figure.work.indexOf(sub._id)
             figure.work.splice(index, 1)
-            figure.update_at =Date.now()
+            figure.update_at = Date.now()
             figure.save()
               .catch(err => Promise.reject(err))
           }
@@ -286,9 +286,158 @@ const index = async (req, res, next) => {
   }
 }
 
+/**
+ * 根据 sub 的 id 获取单个 work
+ * @param req
+ * @param res
+ * @param next
+ * @returns {Promise<*>}
+ */
+const single = async (req, res, next) => {
+  try {
+    const value = await joi.validate(req.params, schema.sub.single)
+      .catch(err => {
+        err.msg = '请求数据错误'
+        err.code = '406'
+        throw err
+      })
+
+    const sub = await Sub.findById(value.id)
+      .catch(err => Promise.reject(err))
+    if (!sub || sub.is_deleted === true || (sub.secret === true && req.role.level < 1)) {
+      const err = new Error()
+      err.msg = '没有找到 work'
+      err.code = '406'
+      throw err
+    }
+    const work = await Work.findById(sub.work)
+      .catch(err => Promise.reject(err))
+
+    if (!work || work.is_deleted === true || (work.secret === true && req.role.level < 1)) {
+      const err = new Error()
+      err.msg = '没有找到 work'
+      err.code = '406'
+      throw err
+    }
+
+    // 查找 sub
+    let conditions = {
+      work: work._id,
+      is_deleted: false
+    }
+    if (!req.role || req.role.level < 1) {
+      conditions.secret = false
+    }
+    let options = {
+      sort: {
+        sort: 1
+      }
+    }
+
+    let subs = await Sub.find(conditions, null, options)
+      .catch(err => Promise.reject(err))
+    util.log('subs', subs)
+
+    if (!subs || subs.length <= 0) {
+      const err = new Error()
+      err.msg = '没有找到 work'
+      err.code = '406'
+      throw err
+    }
+    const result = {
+      id: work._id,
+      rank: work.rank,
+      subType: work.subType,
+      sub: [],
+      imgs: []
+    }
+    let getSubs = subs.map(async (subItem, subIndex) => {
+      let sub = {
+        id: subItem._id,
+        name: subItem.name,
+        secret: subItem.secret
+      }
+      subItem.originName && (sub.originName = subItem.originName)
+      subItem.info && subItem.info.length && (sub.info = subItem.info)
+      subItem.tag && subItem.tag.length && (sub.tag = subItem.tag)
+      if (subItem.figure && subItem.figure.length) {
+        let getFigures = subItem.figure.map(async(figureId, figureIndex) => {
+          // 查找figure
+          let figure = await Figure.findById(figureId)
+            .catch(err => Promise.reject(err))
+          if (!figure || figure.is_deleted) return
+          // 查找subType
+          let subType = await Type.findById(figure.subType)
+            .catch(err => Promise.reject(err))
+          if (!subType || subType.is_deleted) return
+          return {
+            id: figure._id,
+            name: figure.name,
+            title: subType.subType.name
+          }
+        })
+        sub.figure = await Promise.all(getFigures)
+          .catch(err => Promise.reject(err))
+      }
+      return sub
+    })
+    result.sub = await Promise.all(getSubs)
+      .catch(err => Promise.reject(err))
+    // 查找图片
+    const promises = subs.filter(item => !!item.img).map(async (item, index) => {
+      const img = await Img.findById(item.img)
+        .catch(err => Promise.reject(err))
+      if (img) {
+        return {
+          id: img._id,
+          sub: item._id,
+          compressed: config.url.img + '/' + img.path
+        }
+      }
+    })
+    const imgs = await Promise.all(promises)
+    result.imgs = imgs
+
+    // 查找 adapt
+    if (work.adapt) {
+      let adapt = await Adapt.findById(work.adapt)
+        .catch(err => Promise.reject(err))
+      if (adapt.works && adapt.works.length > 0) {
+        let getWorks = adapt.works.map(async (workId, index) => {
+          let work = await Work.findById(workId)
+            .catch(err => Promise.reject(err))
+          if (!work || work.is_deleted === true || (work.secret === true && req.role.level < 2)) return
+          let item = {
+            id: work._id,
+            subType: {
+              id: work.subType
+            }
+          }
+          let subType = await Type.findById(work.subType)
+            .catch(err => Promise.reject(err))
+          if (!subType || subType.is_deleted) return
+          item.subType.name = subType.subType.name
+          item.subType.name_en = subType.subType.name_en
+          return item
+        })
+        let adapt = await Promise.all(getWorks)
+          .catch(err => Promise.reject(err))
+
+        adapt && adapt.length && (result.adapt = adapt)
+      }
+    }
+
+    res.send(result)
+
+  } catch (e) {
+    next(e)
+  }
+}
+
 module.exports = {
   add,
   del,
-  index
+  index,
+  single
 }
 

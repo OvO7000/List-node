@@ -4,6 +4,7 @@ const imgRouter = require('./img')
 const subRouter = require('./sub')
 const figureRouter = require('./figure')
 const userRouter = require('./user')
+const adaptRouter = require('./adapt')
 
 module.exports = app => {
   app.use('/api/type', typeRouter)
@@ -12,4 +13,5 @@ module.exports = app => {
   app.use('/api/sub', subRouter)
   app.use('/api/figure', figureRouter)
   app.use('/api/user', userRouter)
+  app.use('/api/adapt', adaptRouter)
 }

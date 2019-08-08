@@ -5,6 +5,7 @@ const Figure = require('../models/figure')
 const Img = require('../models/img')
 const Type = require('../models/type')
 const Work = require('../models/work')
+const Adapt = require('../models/adapt')
 
 const util = require('../lib/util')
 const schema = require('../lib/schema')
@@ -48,50 +49,96 @@ const add = async (req, res, next) => {
       subType: subType._id,
     }
     data.secret = value.sub.every(item => item.secret === true)
-    const work = await Work.create(data)
+    let work = await Work.create(data)
       .catch(err => Promise.reject(err))
 
     // 保存 sub
     let saveSubs = value.sub.map(async (item, index) => {
 
-        item.work = work._id
-        item.sort = index
-        item.subType = subType._id
-        // 保存 info
-        if (item.figure && item.figure.length > 0) {
-          let checkFigure = item.figure.map(async (figureId, index) => {
-            let figure = await Figure.findById(figureId)
-              .catch(err => Promise.reject(err))
-            if (!figure || figure.is_deleted === true) {
-              return
-            }
-            return figureId
-          })
-          let results = await Promise.all(checkFigure)
-          item.figure = results
-        }
-        // 保存 sub
-        let sub = await Sub.create(item)
-          .catch(err => Promise.reject(err))
-
-        let updateFigure = sub.figure.map(async (figureId, index) => {
-
+      item.work = work._id
+      item.sort = index
+      item.subType = subType._id
+      // 保存 info
+      if (item.figure && item.figure.length > 0) {
+        let checkFigure = item.figure.map(async (figureId, index) => {
           let figure = await Figure.findById(figureId)
             .catch(err => Promise.reject(err))
-
           if (!figure || figure.is_deleted === true) {
             return
           }
-          figure.work.push(sub._id)
-          await figure.save()
           return figureId
         })
-        await Promise.all(updateFigure)
-
-        return sub._id
+        let results = await Promise.all(checkFigure)
+        item.figure = results
       }
-    )
+      // 保存 sub
+      let sub = await Sub.create(item)
+        .catch(err => Promise.reject(err))
+
+      let updateFigure = sub.figure.map(async (figureId, index) => {
+
+        let figure = await Figure.findById(figureId)
+          .catch(err => Promise.reject(err))
+
+        if (!figure || figure.is_deleted === true) {
+          return
+        }
+        if (figure.work && figure.work.length < 3 && figure.work.indexOf(sub._id) < 0) {
+          figure.work.push(sub._id)
+          figure = await figure.save()
+            .catch(err => Promise.reject(err))
+        }
+        return figureId
+      })
+      await Promise.all(updateFigure)
+
+      return sub._id
+    })
     const result = await Promise.all(saveSubs)
+    // 保存 adapt
+    if (value.adapt) {
+      // 将 work 链接到一个已存在的 adapt
+      if (value.adapt.id) {
+        let adapt = await Adapt.findById(value.adapt.id)
+          .catch(err => Promise.reject(err))
+        if (!adapt || adapt.is_deleted) return
+        if (adapt.works.indexOf(value.adapt.id) < 0) {
+          adapt.works.push(value.adapt.id)
+          value.adapt.name && (adapt.name = value.adapt.name)
+          value.adapt.origin && (adapt.origin = work._id)
+          adapt.update_at = Date.now()
+          adapt = await adapt.save()
+            .catch(err => Promise.reject(err))
+          // 更新 work
+          work.adapt = value.adapt.id
+          work.update_at = Date.now()
+          work = await work.save()
+            .catch(err => Promise.reject(err))
+        }
+      }
+      // adapt 没有 id,有 name
+      // 新增一个 adapt
+      else if (value.adapt.name) {
+        let conditions = {
+          name: value.adapt.name,
+          is_deleted: false
+        }
+        let adapt = await Adapt.find(conditions)
+          .catch(err => Promise.reject(err))
+        if (adapt) return
+        let item = {
+          name: value.adapt.name,
+          work: [work._id]
+        }
+        value.adapt.origin && (item.origin = work._id)
+        adapt = await Adapt.create(item)
+          .catch(err => Promise.reject(err))
+        work.adapt = adapt._id
+        work.update_at = Date.now()
+        work = await work.save()
+          .catch(err => Promise.reject(err))
+      }
+    }
     res.send(result)
   } catch (e) {
     next(e)
@@ -156,12 +203,36 @@ const edit = async (req, res, next) => {
             originName: ''
           }
         }
+        // 删除work下被删除figure的关联
+        if (sub.figure) {
+          // work下被删除figure
+          let figureIds = sub.figure.filter(figureId => item.figure.indexOf(figureId) < 0)
+          let deleteFigureLink = figureIds.map(async (figureId, figureIndex) => {
+            let figure = await Figure.findById(figureId)
+              .catch(err => Promise.reject(err))
+            if (!figure || figure.is_deleted === true) {
+              return
+            }
+            let workIndex = figure.work.indexOf(item.id)
+            figure.work.splice(workIndex, 1)
+            figure = await figure.save()
+              .catch(err => Promise.reject(err))
+            return figureId
+          })
+          conditions.figure = await Promise.all(deleteFigureLink)
+        }
+        // 添加work下新增figure的关联
         if (item.figure) {
           let checkFigure = item.figure.map(async (figureId, figureIndex) => {
             let figure = await Figure.findById(figureId)
               .catch(err => Promise.reject(err))
             if (!figure || figure.is_deleted === true) {
               return
+            }
+            if (figure.work && figure.work.length < 3 && figure.work.indexOf(item.id) < 0) {
+              figure.work.push(item.id)
+              figure = await figure.save()
+                .catch(err => Promise.reject(err))
             }
             return figureId
           })
@@ -174,9 +245,8 @@ const edit = async (req, res, next) => {
       }
     })
     let editSubResult = await Promise.all(editSub)
-
+    // 修改 work 的 rank、secret属性
     let secret = value.sub.every(item => item.secret === true)
-
     if (secret !== work.secret || value.rank !== work.rank) {
       const conditions = {
         secret: secret,
@@ -189,7 +259,110 @@ const edit = async (req, res, next) => {
         })
       res.send(result._id)
     }
+    if (value.adapt) {
+      let adapt
+      // 将 work 关联至一个 adapt
+      if (value.adapt.id) {
+        // 将 work 添加至新的 adapt
+        adapt = await Adapt.findById(value.adapt.id)
+          .catch(err => Promise.reject(err))
+        if (!adapt || adapt.is_deleted || adapt.works.indexOf(value.adapt.id) > 0) {
+          res.send(work._id)
+          return next()
+        }
+        adapt.works.push(value.id)
+        value.adapt.name && (adapt.name = value.adapt.name)
+        value.adapt.origin && (adapt.origin = work._id)
+        adapt.update_at = Date.now()
+        adapt = await adapt.save()
+          .catch(err => Promise.reject(err))
+      }
+      // 新建一个 adapt
+      else if (value.adapt.name) {
+        // adapt 没有 id,有 name
+        // 新增一个 adapt
+        let conditions = {
+          name: value.adapt.name,
+          is_deleted: false
+        }
+        let exist = await Adapt.find(conditions)
+          .catch(err => Promise.reject(err))
+        // adapt 不存在
+        if (exist && exist.is_deleted === false) {
+          res.send(work._id)
+          return next()
+        }
+        let item = {
+          name: value.adapt.name,
+          works: [work._id]
+        }
+        util.log(item)
+        value.adapt.origin && (item.origin = work._id)
+        adapt = await Adapt.create(item)
+          .catch(err => Promise.reject(err))
 
+      }
+      // 将 work 从旧的 adapt 中删除
+      if (work.adapt) {
+        let adapt = await Adapt.findById(work.adapt)
+          .catch(err => Promise.reject(err))
+        if (!adapt || adapt.is_deleted) return
+        let index = adapt.works.indexOf(work._id)
+        adapt.works.splice(index, 1)
+
+        let conditions = {
+          works: adapt.works,
+          is_deleted: !adapt.work.length,
+          update_at: Date.now()
+        }
+        if (adapt.origin && adapt.origin === work._id) {
+          conditions.$unset = {
+            origin: ''
+          }
+        }
+        adapt = await Adapt.findByIdAndUpdate(work.adapt, conditions)
+          .catch(err => Promise.reject(err))
+      }
+      // 更新 work
+      work.adapt = adapt._id
+      work.update_at = Date.now()
+      work = await work.save()
+        .catch(err => Promise.reject(err))
+    }
+    // 上传 work 没有 adapt，但存储的 work 有 adapt
+    // 把 work 从 adapt 中删除
+    else if (work.adapt) {
+      let adaptId = work.adapt
+      let conditions = {
+        $unset: {
+          adapt: ''
+        },
+        update_at: Date.now()
+      }
+      // 删除 work 的 adapt 字段
+      work = await Work.findByIdAndUpdate(work._id, conditions)
+        .catch(err => Promise.reject(err))
+      // 移除 adapt 中的 work
+      let adapt = await Adapt.findById(adaptId)
+        .catch(err => Promise.reject(err))
+      if (!adapt || adapt.is_deleted) return
+
+      let index = adapt.works.indexOf(work._id)
+      adapt.works.splice(index, 1)
+
+      conditions = {
+        works: adapt.works,
+        is_deleted: !adapt.work.length,
+        update_at: Date.now()
+      }
+      if (adapt.origin && adapt.origin === work._id) {
+        conditions.$unset = {
+          origin: ''
+        }
+      }
+      adapt = await Adapt.findByIdAndUpdate(adaptId, conditions)
+        .catch(err => Promise.reject(err))
+    }
     res.send(work._id)
   } catch (e) {
     next(e)
@@ -257,8 +430,9 @@ const index = async (req, res, next) => {
       res.send(result)
       return next()
     }
-    // 查找 sub
+
     let promises = works.map(async (work, index) => {
+      // 查找 sub
       let conditions = {
         work: work._id,
         is_deleted: false
@@ -282,12 +456,13 @@ const index = async (req, res, next) => {
         let sub = {
           id: subItem._id,
           name: subItem.name,
+          secret: subItem.secret
         }
         subItem.originName && (sub.originName = subItem.originName)
         subItem.info && subItem.info.length && (sub.info = subItem.info)
         subItem.tag && subItem.tag.length && (sub.tag = subItem.tag)
         if (subItem.figure && subItem.figure.length) {
-          let getFigures = subItem.figure.map(async(figureId, figureIndex) => {
+          let getFigures = subItem.figure.map(async (figureId, figureIndex) => {
             // 查找figure
             let figure = await Figure.findById(figureId)
               .catch(err => Promise.reject(err))
@@ -309,7 +484,6 @@ const index = async (req, res, next) => {
       })
       result.sub = await Promise.all(getSubs)
         .catch(err => Promise.reject(err))
-
       // 查找图片
       const promises = subs.filter(item => !!item.img).map(async (item, index) => {
         const img = await Img.findById(item.img)
@@ -323,9 +497,50 @@ const index = async (req, res, next) => {
         }
       })
       result.imgs = await Promise.all(promises)
+
+      // 查找 adapt
+      if (work.adapt) {
+        let adapt = await Adapt.findById(work.adapt)
+          .catch(err => Promise.reject(err))
+        let item = {
+          id: adapt._id,
+          name: adapt.name
+        }
+        adapt.origin && (item.origin = adapt.origin)
+        if (adapt && adapt.works && adapt.works.length > 0) {
+          util.log(adapt.works)
+          let getWorks = adapt.works.map(async (workId, index) => {
+            let adaptWork = await Work.findById(workId)
+              .catch(err => Promise.reject(err))
+            if (!adaptWork || adaptWork.is_deleted === true || adaptWork._id.toString() === work._id.toString()) return
+            console.log(adaptWork._id)
+            console.log(work._id)
+            let item = {
+              id: adaptWork._id,
+              subType: {
+                id: adaptWork.subType
+              }
+            }
+            let subType = await Type.findById(adaptWork.subType)
+              .catch(err => Promise.reject(err))
+            if (!subType || subType.is_deleted) return
+            item.subType.name = subType.subType.name
+            item.subType.name_en = subType.subType.name_en
+            return item
+
+          })
+          let worksResult = await Promise.all(getWorks)
+            .catch(err => Promise.reject(err))
+          worksResult = worksResult.filter(item => item != null)
+
+          worksResult && worksResult.length && (item.works = worksResult)
+        }
+        result.adapt = item
+      }
       return result
     })
     result = await Promise.all(promises)
+
     res.send(result)
 
   } catch (e) {
@@ -334,7 +549,7 @@ const index = async (req, res, next) => {
 }
 
 /**
- * 获取单个 work
+ * 根据 work 的 id 获取单个 work
  * @param req
  * @param res
  * @param next
@@ -349,15 +564,7 @@ const single = async (req, res, next) => {
         throw err
       })
 
-    const sub = await Sub.findById(value.id)
-      .catch(err => Promise.reject(err))
-    if (!sub || sub.is_deleted === true || (sub.secret === true && req.role.level < 1)) {
-      const err = new Error()
-      err.msg = '没有找到 work'
-      err.code = '406'
-      throw err
-    }
-    const work = await Work.findById(sub.work)
+    const work = await Work.findById(value.id)
       .catch(err => Promise.reject(err))
 
     if (!work || work.is_deleted === true || (work.secret === true && req.role.level < 1)) {
@@ -380,7 +587,6 @@ const single = async (req, res, next) => {
         sort: 1
       }
     }
-    util.log('conditions', conditions)
 
     let subs = await Sub.find(conditions, null, options)
       .catch(err => Promise.reject(err))
@@ -403,12 +609,13 @@ const single = async (req, res, next) => {
       let sub = {
         id: subItem._id,
         name: subItem.name,
+        secret: subItem.secret
       }
       subItem.originName && (sub.originName = subItem.originName)
       subItem.info && subItem.info.length && (sub.info = subItem.info)
       subItem.tag && subItem.tag.length && (sub.tag = subItem.tag)
       if (subItem.figure && subItem.figure.length) {
-        let getFigures = subItem.figure.map(async(figureId, figureIndex) => {
+        let getFigures = subItem.figure.map(async (figureId, figureIndex) => {
           // 查找figure
           let figure = await Figure.findById(figureId)
             .catch(err => Promise.reject(err))
@@ -444,6 +651,43 @@ const single = async (req, res, next) => {
     })
     const imgs = await Promise.all(promises)
     result.imgs = imgs
+
+    // 查找 adapt
+    if (work.adapt) {
+      let adapt = await Adapt.findById(work.adapt)
+        .catch(err => Promise.reject(err))
+      let item = {
+        id: adapt._id,
+        name: adapt.name
+      }
+      if (adapt.works && adapt.works.length > 0) {
+
+        let getWorks = adapt.works.map(async (workId, index) => {
+          let adaptWork = await Work.findById(workId)
+            .catch(err => Promise.reject(err))
+
+          if (!adaptWork || adaptWork.is_deleted === true || adaptWork._id === work._id) return
+          let item = {
+            id: work._id,
+            subType: {
+              id: work.subType
+            }
+          }
+          let subType = await Type.findById(work.subType)
+            .catch(err => Promise.reject(err))
+          if (!subType || subType.is_deleted) return
+          item.subType.name = subType.subType.name
+          item.subType.name_en = subType.subType.name_en
+          return item
+        })
+        let worksResult = await Promise.all(getWorks)
+          .catch(err => Promise.reject(err))
+
+        worksResult && worksResult.length && (item.works = worksResult)
+      }
+      result.adapt = item
+    }
+
     res.send(result)
 
   } catch (e) {
@@ -474,7 +718,7 @@ const del = async (req, res, next) => {
         throw err
       })
 
-    const work = await Work.findById(value.id)
+    let work = await Work.findById(value.id)
       .catch(err => Promise.reject(err))
 
     if (!work || work.is_deleted) {
@@ -513,7 +757,7 @@ const del = async (req, res, next) => {
           })
         // 删除 figure 关联
         if (sub.figure && sub.figure.length) {
-          let deleteFigureLink = sub.figure.map(async(figureId, figureIndex) => {
+          let deleteFigureLink = sub.figure.map(async (figureId, figureIndex) => {
             let figure = Figure.findById(figureId)
               .catch(err => Promise.reject(err))
             if (!figure || figure.is_deleted) {
@@ -522,8 +766,8 @@ const del = async (req, res, next) => {
             if (figure.work) {
               let index = figure.work.indexOf(sub._id)
               figure.work.splice(index, 1)
-              figure.update_at =Date.now()
-              figure.save()
+              figure.update_at = Date.now()
+              await figure.save()
                 .catch(err => Promise.reject(err))
             }
             return figure
@@ -547,6 +791,31 @@ const del = async (req, res, next) => {
       })
       const result = await Promise.all(delSubs)
     }
+
+    // 从 adapt 中删除
+    if (work.adapt) {
+      // 移除 adapt 中的 work
+      let adapt = await Adapt.findById(work.adapt)
+        .catch(err => Promise.reject(err))
+      if (!adapt || adapt.is_deleted) return
+
+      let index = adapt.works.indexOf(work._id)
+      adapt.works.splice(index, 1)
+
+      conditions = {
+        works: adapt.works,
+        is_deleted: !adapt.work.length,
+        update_at: Date.now()
+      }
+      if (adapt.origin && adapt.origin === work._id) {
+        conditions.$unset = {
+          origin: ''
+        }
+      }
+      adapt = await Adapt.findByIdAndUpdate(adaptId, conditions)
+        .catch(err => Promise.reject(err))
+    }
+
     res.send(work._id)
   } catch (e) {
     next(e)

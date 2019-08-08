@@ -56,14 +56,18 @@ const add = async (req, res, next) => {
       .catch(err => Promise.reject(err))
 
     // 检查 work
-    let workResults
     if (value.work && value.work.length > 0) {
-      let workPromises = value.work.filter(async (workId, index) => {
-        let sub = Sub.findById(workId)
+      let checkWork = value.work.filter(async (workId, index) => {
+        let sub = await Sub.findById(workId)
           .catch(err => Promise.reject(err))
         if (!sub || sub.is_deleted === true) {
           return false
         }
+        return true
+      })
+      let workResults = await Promise.all(checkWork)
+      // 将figure关联至sub
+      let linkSub = workResults.splice(0, 3).map(async (sub, subIndex) => {
         // 删除和figure重复的info
         let infoIndex = sub.info.findIndex((info, index) => {
           return (info.name === value.name && info.title === subType.subType.name)
@@ -76,10 +80,13 @@ const add = async (req, res, next) => {
           sub = await sub.save()
             .catch(err => Promise.reject(err))
         }
-        return true
+        return sub._id
       })
-      workResults = await Promise.all(workPromises)
-      if (workResults && workResults.length) {
+      let subResults = await Promise.all(linkSub)
+        .catch(err => Promise.reject(err))
+
+
+      if (subResults && subResults.length) {
         figure.work = workResults
         figure = await figure.save()
           .catch(err => Promise.reject(err))
@@ -126,28 +133,36 @@ const edit = async (req, res, next) => {
     }
     // 保存 figure
     if (hasChange(figure, value)) {
-      let workPromises = value.work.filter(async workId => {
-        let sub = Sub.findById(workId)
-          .catch(err => Promise.reject(err))
-        if (!sub || sub.is_deleted === true) {
-          return false
-        }
-        // 删除和figure重复的info
-        let infoIndex = sub.info.findIndex((info, index) => {
-          return (info.name === value.name && info.title === subType.subType.name)
-        })
-        sub.info.splice(infoIndex, 1)
-        // 查看sub内是否已有figure
-        let figureIndex = sub.figure.indexOf(figure._id)
-        if (figureIndex < 0) {
-          sub.figure.push(figure._id)
-          sub = await sub.save()
+      let works = []
+      if (value.work && value.work.length > 0) {
+        let checkWork = value.work.filter(async (workId, index) => {
+          let sub = await Sub.findById(workId)
             .catch(err => Promise.reject(err))
-        }
-        return true
-      })
-      let works = await Promise.all(workPromises)
-        .catch(err => Promise.reject(err))
+          if (!sub || sub.is_deleted === true) {
+            return false
+          }
+          return true
+        })
+        let workResults = await Promise.all(checkWork)
+        // 将figure关联至sub
+        let subPromise = workResults.splice(0,3).map(async(sub, subIndex) => {
+          // 删除和figure重复的info
+          let infoIndex = sub.info.findIndex((info, index) => {
+            return (info.name === value.name && info.title === subType.subType.name)
+          })
+          sub.info.splice(infoIndex, 1)
+          // 查看sub内是否已有figure
+          let figureIndex = sub.figure.findIndex(figure._id)
+          if (figureIndex < 0) {
+            sub.figure.push(figure._id)
+            sub = await sub.save()
+              .catch(err => Promise.reject(err))
+          }
+          return sub._id
+        })
+        let works = await Promise.all(subPromise)
+          .catch(err => Promise.reject(err))
+      }
 
       let conditions = {
         name: value.name,
@@ -489,13 +504,17 @@ const del = async (req, res, next) => {
     figure.update_at = Date.now()
     figure.deleted_at = Date.now()
     figure = await figure.save()
-      .catch((err) => {
-        throw err
-      })
+      .catch((err) => {throw err})
+      let conditions = {
+        figure: {
+          $eleMatch: figure._id
+        }
+      }
+      let subs = await Sub.find(conditions)
+        .catch((err) => {throw err})
 
-    if (figure.work && figure.work.length) {
-      let setSub = figure.work.map(async (subId, subIndex) => {
-        let sub = Sub.findById(subId)
+    let setSub = subs.map(async (subId, subIndex) => {
+        let sub = await Sub.findById(subId)
           .catch(err => Promise.reject(err))
         if (!sub || sub.is_deleted) return
         let figureIndex = sub.figure.indexOf(figure._id)
@@ -509,9 +528,9 @@ const del = async (req, res, next) => {
           .catch(err => Promise.reject(err))
         return sub
       })
-      let subs = await Promise.all(setSub)
+      subs = await Promise.all(setSub)
         .catch(err => Promise.reject(err))
-    }
+
     res.send(figure._id)
   } catch (e) {
     next(e)

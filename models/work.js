@@ -5,7 +5,7 @@ const name = 'Work'
 const schema = {
   rank: {type: Boolean, default: false},
   subType: {type: mongoose.Schema.ObjectId, required: true},
-  adapt: [mongoose.Schema.ObjectId],
+  adapt: mongoose.Schema.ObjectId,
   secret: {type: Boolean, default: false}
 }
 
