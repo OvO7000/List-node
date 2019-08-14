@@ -264,6 +264,7 @@ const index = async (req, res, next) => {
               if (img && img.is_deleted === false) {
                 imgs.push({
                   compressed: `${config.url.img}/${img.path}`,
+                  resized: `${config.url.img}/${img.resized}`,
                   id: img._id,
                   sub: sub._id
                 })
@@ -274,7 +275,6 @@ const index = async (req, res, next) => {
               subType = await Type.findById(sub.subType)
                 .catch(err => Promise.reject(err))
             }
-            console.log(subType)
             return {
               id: sub._id,
               name: sub.name,
@@ -340,6 +340,7 @@ const single = async (req, res, next) => {
             if (img && img.is_deleted === false) {
               imgs.push({
                 compressed: `${config.url.img}/${img.path}`,
+                resized: `${config.url.img}/${img.resized}`,
                 id: img._id,
                 sub: sub._id
               })
@@ -434,6 +435,7 @@ const query = async (req, res, next) => {
               if (img && img.is_deleted === false) {
                 imgs.push({
                   compressed: `${config.url.img}/${img.path}`,
+                  resized: `${config.url.img}/${img.resized}`,
                   id: img._id,
                   sub: sub._id
                 })
@@ -444,7 +446,6 @@ const query = async (req, res, next) => {
               subType = await Type.findById(sub.subType)
                 .catch(err => Promise.reject(err))
             }
-            console.log(subType)
             return {
               id: sub._id,
               name: sub.name,

@@ -1,4 +1,5 @@
 const joi = require('@hapi/joi')
+const fs = require('fs')
 
 const Sub = require('../models/sub')
 const Figure = require('../models/figure')
@@ -257,81 +258,203 @@ const edit = async (req, res, next) => {
         .catch((err) => {
           throw err
         })
-      res.send(result._id)
     }
     if (value.adapt) {
-      let adapt
-      // 将 work 关联至一个 adapt
+
+      // // 上传的 adapt 带有 id，并且与存储的 work 的 id不同
+      // // 将 work 关联至一个 adapt
+      // if (value.adapt.id && value.adapt.id.toString() !== work.adapt.toString()) {
+      //   // 将 work 添加至新的 adapt
+      //   adapt = await Adapt.findById(value.adapt.id)
+      //     .catch(err => Promise.reject(err))
+      //   if (!adapt || adapt.is_deleted || adapt.works.indexOf(value.adapt.id) > 0) {
+      //     res.send(work._id)
+      //     return next()
+      //   }
+      //   adapt.works.push(value.id)
+      //   value.adapt.name && (adapt.name = value.adapt.name)
+      //   value.adapt.origin && (adapt.origin = work._id)
+      //   adapt.update_at = Date.now()
+      //   adapt = await adapt.save()
+      //     .catch(err => Promise.reject(err))
+      // }
+      // // 新建一个 adapt
+      // else if (!value.adapt.id && value.adapt.name) {
+      //   // adapt 没有 id,有 name
+      //   // 新增一个 adapt
+      //   let conditions = {
+      //     name: value.adapt.name,
+      //     is_deleted: false
+      //   }
+      //   let exist = await Adapt.find(conditions)
+      //     .catch(err => Promise.reject(err))
+      //   // adapt 不存在
+      //   if (exist && exist.is_deleted === false) {
+      //     res.send(work._id)
+      //     return next()
+      //   }
+      //   let item = {
+      //     name: value.adapt.name,
+      //     works: [work._id]
+      //   }
+      //   value.adapt.origin && (item.origin = work._id)
+      //   adapt = await Adapt.create(item)
+      //     .catch(err => Promise.reject(err))
+      //
+      // }
+      // // 将 work 从旧的 adapt 中删除
+      // if ((value.adapt.id && value.adapt.id.toString() !== work.adapt.toString()) || (value.adapt.name && work.adapt)) {
+      //   let adapt = await Adapt.findById(work.adapt)
+      //     .catch(err => Promise.reject(err))
+      //   if (!adapt || adapt.is_deleted) return
+      //   let index = adapt.works.indexOf(work._id)
+      //   adapt.works.splice(index, 1)
+      //
+      //   let conditions = {
+      //     works: adapt.works,
+      //     is_deleted: !adapt.works.length,
+      //     update_at: Date.now()
+      //   }
+      //   if (adapt.origin && adapt.origin === work._id) {
+      //     conditions.$unset = {
+      //       origin: ''
+      //     }
+      //   }
+      //   adapt = await Adapt.findByIdAndUpdate(work.adapt, conditions)
+      //     .catch(err => Promise.reject(err))
+      // }
+      // // 更新 work
+      // if ((value.adapt.id && value.adapt.id.toString() !== work.adapt.toString()) || (!value.adapt.id && value.adapt.name)) {
+      //   work.adapt = adapt._id
+      //   work.update_at = Date.now()
+      //   work = await work.save()
+      //     .catch(err => Promise.reject(err))
+      // }
+
+      // 上传的 adapt 带有 id
       if (value.adapt.id) {
-        // 将 work 添加至新的 adapt
-        adapt = await Adapt.findById(value.adapt.id)
-          .catch(err => Promise.reject(err))
-        if (!adapt || adapt.is_deleted || adapt.works.indexOf(value.adapt.id) > 0) {
-          res.send(work._id)
-          return next()
+        if (work.adapt) {
+          // 将 work 关联到新的 adapt
+          if (value.adapt.id !== work.adapt)  {
+            // 将 work 添加至新的 adapt
+            let adapt = await Adapt.findById(value.adapt.id)
+              .catch(err => Promise.reject(err))
+            if (!adapt || adapt.is_deleted || adapt.works.indexOf(value.adapt.id) > 0) {
+              res.send(work._id)
+              return next()
+            }
+            adapt.works.push(value.id)
+            value.adapt.name && (adapt.name = value.adapt.name)
+            value.adapt.origin && (adapt.origin = work._id)
+            adapt.update_at = Date.now()
+            adapt = await adapt.save()
+              .catch(err => Promise.reject(err))
+            // 删除原有 adapt 中 work
+            let  oldAdapt = await Adapt.findById(work.adapt)
+              .catch(err => Promise.reject(err))
+            if (!oldAdapt || oldAdapt.is_deleted) {
+              res.send(work._id)
+              return next()
+            }
+            let index = oldAdapt.works.indexOf(work._id)
+            oldAdapt.works.splice(index, 1)
+
+            let conditions = {
+              works: oldAdapt.works,
+              is_deleted: !oldAdapt.works.length,
+              update_at: Date.now()
+            }
+            if (oldAdapt.origin && oldAdapt.origin === work._id) {
+              conditions.$unset = {
+                origin: ''
+              }
+            }
+            oldAdapt = await Adapt.findByIdAndUpdate(work.adapt, conditions)
+              .catch(err => Promise.reject(err))
+             // 更新 work
+            work.adapt = adapt._id
+            work.update_at = Date.now()
+            work = await work.save()
+              .catch(err => Promise.reject(err))
+          }
         }
-        adapt.works.push(value.id)
-        value.adapt.name && (adapt.name = value.adapt.name)
-        value.adapt.origin && (adapt.origin = work._id)
-        adapt.update_at = Date.now()
-        adapt = await adapt.save()
-          .catch(err => Promise.reject(err))
+        else {
+          // 将 work 添加至新的 adapt
+          let adapt = await Adapt.findById(value.adapt.id)
+            .catch(err => Promise.reject(err))
+          if (!adapt || adapt.is_deleted || adapt.works.indexOf(value.adapt.id) > 0) {
+            res.send(work._id)
+            return next()
+          }
+          adapt.works.push(value.id)
+          value.adapt.name && (adapt.name = value.adapt.name)
+          value.adapt.origin && (adapt.origin = work._id)
+          adapt.update_at = Date.now()
+          adapt = await adapt.save()
+            .catch(err => Promise.reject(err))
+          // 更新 work
+          work.adapt = adapt._id
+          work.update_at = Date.now()
+          work = await work.save()
+            .catch(err => Promise.reject(err))
+        }
       }
-      // 新建一个 adapt
+      // 上传的 adapt 带有 name
       else if (value.adapt.name) {
-        // adapt 没有 id,有 name
-        // 新增一个 adapt
         let conditions = {
           name: value.adapt.name,
           is_deleted: false
         }
-        let exist = await Adapt.find(conditions)
+        let adapt = await Adapt.find(conditions)
           .catch(err => Promise.reject(err))
-        // adapt 不存在
-        if (exist && exist.is_deleted === false) {
+        // adapt 存在
+        if (adapt && adapt.is_deleted === false) {
           res.send(work._id)
           return next()
         }
+        // 新建 adapt
         let item = {
           name: value.adapt.name,
           works: [work._id]
         }
-        util.log(item)
         value.adapt.origin && (item.origin = work._id)
         adapt = await Adapt.create(item)
           .catch(err => Promise.reject(err))
-
-      }
-      // 将 work 从旧的 adapt 中删除
-      if (work.adapt) {
-        let adapt = await Adapt.findById(work.adapt)
-          .catch(err => Promise.reject(err))
-        if (!adapt || adapt.is_deleted) return
-        let index = adapt.works.indexOf(work._id)
-        adapt.works.splice(index, 1)
-
-        let conditions = {
-          works: adapt.works,
-          is_deleted: !adapt.work.length,
-          update_at: Date.now()
-        }
-        if (adapt.origin && adapt.origin === work._id) {
-          conditions.$unset = {
-            origin: ''
+        // 删除原来 adapt 中 work
+        if (work.adapt) {
+          let adapt = await Adapt.findById(work.adapt)
+            .catch(err => Promise.reject(err))
+          if (!adapt || adapt.is_deleted) {
+            res.send(work._id)
+            return next()
           }
+          let index = adapt.works.indexOf(work._id)
+          adapt.works.splice(index, 1)
+
+          let conditions = {
+            works: adapt.works,
+            is_deleted: !adapt.works.length,
+            update_at: Date.now()
+          }
+          if (adapt.origin && adapt.origin === work._id) {
+            conditions.$unset = {
+              origin: ''
+            }
+          }
+          adapt = await Adapt.findByIdAndUpdate(work.adapt, conditions)
+            .catch(err => Promise.reject(err))
         }
-        adapt = await Adapt.findByIdAndUpdate(work.adapt, conditions)
+        // 更新 work
+        work.adapt = adapt._id
+        work.update_at = Date.now()
+        work = await work.save()
           .catch(err => Promise.reject(err))
       }
-      // 更新 work
-      work.adapt = adapt._id
-      work.update_at = Date.now()
-      work = await work.save()
-        .catch(err => Promise.reject(err))
+
     }
     // 上传 work 没有 adapt，但存储的 work 有 adapt
     // 把 work 从 adapt 中删除
-    else if (work.adapt) {
+    else if (! value.adapt && work.adapt) {
       let adaptId = work.adapt
       let conditions = {
         $unset: {
@@ -364,6 +487,7 @@ const edit = async (req, res, next) => {
         .catch(err => Promise.reject(err))
     }
     res.send(work._id)
+    return next()
   } catch (e) {
     next(e)
   }
@@ -456,7 +580,8 @@ const index = async (req, res, next) => {
         let sub = {
           id: subItem._id,
           name: subItem.name,
-          secret: subItem.secret
+          secret: subItem.secret,
+          sort: subItem.sort
         }
         subItem.originName && (sub.originName = subItem.originName)
         subItem.info && subItem.info.length && (sub.info = subItem.info)
@@ -492,7 +617,8 @@ const index = async (req, res, next) => {
           return {
             id: img._id,
             sub: item._id,
-            compressed: config.url.img + '/' + img.path
+            compressed: config.url.img + '/' + img.path,
+            resized: config.url.img + '/' + img.resized
           }
         }
       })
@@ -508,13 +634,10 @@ const index = async (req, res, next) => {
         }
         adapt.origin && (item.origin = adapt.origin)
         if (adapt && adapt.works && adapt.works.length > 0) {
-          util.log(adapt.works)
           let getWorks = adapt.works.map(async (workId, index) => {
             let adaptWork = await Work.findById(workId)
               .catch(err => Promise.reject(err))
             if (!adaptWork || adaptWork.is_deleted === true || adaptWork._id.toString() === work._id.toString()) return
-            console.log(adaptWork._id)
-            console.log(work._id)
             let item = {
               id: adaptWork._id,
               subType: {
@@ -590,7 +713,6 @@ const single = async (req, res, next) => {
 
     let subs = await Sub.find(conditions, null, options)
       .catch(err => Promise.reject(err))
-    util.log('subs', subs)
 
     if (!subs || subs.length <= 0) {
       const err = new Error()
@@ -609,7 +731,8 @@ const single = async (req, res, next) => {
       let sub = {
         id: subItem._id,
         name: subItem.name,
-        secret: subItem.secret
+        secret: subItem.secret,
+        sort: subItem.sort
       }
       subItem.originName && (sub.originName = subItem.originName)
       subItem.info && subItem.info.length && (sub.info = subItem.info)
@@ -645,7 +768,8 @@ const single = async (req, res, next) => {
         return {
           id: img._id,
           sub: item._id,
-          compressed: config.url.img + '/' + img.path
+          compressed: config.url.img + '/' + img.path,
+          resized: config.url.img + '/' + img.resized
         }
       }
     })
@@ -777,15 +901,19 @@ const del = async (req, res, next) => {
         }
         // 删除 img
         if (sub.img) {
-          const option = {
-            is_deleted: true,
-            update_at: Date.now(),
-            deleted_at: Date.now()
+          let img = await Img.findById(sub.img)
+            .catch((err) => {throw err})
+            if (result && result.is_deleted === false) {
+              await fs.unlink(`${config.img.path.all}/${img.path}`)
+                .catch((err) => { throw err })
+              await fs.unlink(`${config.img.path.all}/${img.resized}`)
+                .catch((err) => { throw err })
+              img.is_deleted = true
+              img.update_at = Date.now()
+              img.deleted_at = Date.now()
+              img = await img.save()
+                .catch(err => Promise.reject(err))
           }
-          const result = await Img.findByIdAndUpdate(sub.img, option)
-            .catch((err) => {
-              throw err
-            })
         }
         return sub._id
       })

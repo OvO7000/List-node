@@ -29,7 +29,7 @@ const adds = async (req, res, next) => {
     }
     const value = await joi.validate(req.body, schema.img.adds)
       .catch((err) => {
-        err.msg = 'img数据错误'
+        err.msg = '请求数据错误'
         err.code = '406'
         throw err
       })
@@ -72,27 +72,29 @@ const adds = async (req, res, next) => {
       // 'assets/imgs/work/comic/xxxx.jpg'
       // 'assets/imgs/work/comic'
       // 'work/comic/xxxx.jpg'
-      const newFile = config.img.path.work + '/' + type.subType.name_en + '/' + file.filename
+      const compressFile = config.img.path.work + '/' + type.subType.name_en + '/' + file.filename
+      const resizeFile = config.img.path.work + '/' + type.subType.name_en + '/rs' + file.filename
       const newPath = config.img.path.work + '/' + type.subType.name_en
-      const savePath = 'work/' + type.subType.name_en + '/' + file.filename
+      const compressPath = 'work/' + type.subType.name_en + '/' + file.filename
+      const resizePath = 'work/' + type.subType.name_en + '/rs' + file.filename
       const exist = await fs.access(newPath)
         .catch(async (err) => {
           if (err.code === 'ENOENT') {
-            const mkdir = await fs.mkdir(newPath, {recursive: true})
+            const mkdir = await fs.mkdir(newPath, { recursive: true })
               .catch((err) => {
                 throw err
               })
           }
         })
-
-      const save = await fs.rename(file.path, newFile)
-        .catch((err) => {
-          throw err
-        })
+      await util.compress(file.path, compressFile)
+        .catch((err) => { throw err })
+      await util.resize(file.path, resizeFile)
+        .catch((err) => { throw err })
 
       // 保存 img
       let option = {
-        path: savePath
+        path: compressPath,
+        resized: resizePath
       }
 
       let img = await Img.create(option)
@@ -112,18 +114,19 @@ const adds = async (req, res, next) => {
       return img._id
     })
     const result = await Promise.all(saveImg)
-
     const uploads = await fs.readdir(config.img.path.upload)
       .catch((err) => {
         throw err
       })
     // 删除 uploads 文件夹下图片
-    const deleteUploads = uploads.map(item => {
-      fs.unlink(item).catch((err) => {
+    const deleteUploads = uploads.map(async item => {
+      await fs.unlink(config.img.path.upload + item).catch((err) => {
         throw err
       })
     })
-    await Promise.all(deleteUploads)
+    await Promise.all(deleteUploads).catch(err => {
+      console.log('promise')
+      throw err})
     res.send(result)
 
   } catch (e) {
@@ -160,17 +163,13 @@ const del = async (req, res, next) => {
       deleted_at: Date.now()
     }
     let img = await Img.findByIdAndUpdate(value.id, conditions)
-      .catch((err) => {
-        throw err
-      })
+      .catch((err) => { throw err })
     let sub = await Sub.findOneAndUpdate({img: value.id}, {$unset: {img: ''}})
-      .catch((err) => {
-        throw err
-      })
+      .catch((err) => { throw err })
     await fs.unlink(`${config.img.path.all}/${img.path}`)
-      .catch((err) => {
-        throw err
-      })
+      .catch((err) => { console.log(`${config.img.path.all}/${img.path}not exist` ) })
+    await fs.unlink(`${config.img.path.all}/${img.resized}`)
+      .catch((err) => { console.log(`${config.img.path.all}/${img.path}not exist` ) })
 
     res.send(img._id)
   } catch (e) {
@@ -220,11 +219,14 @@ const edit = async (req, res, next) => {
     // 移动新图片
     const file = req.file
     // 'assets/imgs/work/comic/xxxx.jpg'
+    // 'assets/imgs/work/comic/rs-xxxx.jpg'
     // 'assets/imgs/work/comic'
     // 'work/comic/xxxx.jpg'
     let type = img.path.split('/')[0]
     let subType = img.path.split('/')[1]
-    const newFile = `${config.img.path.all}/${type}/${subType}/${file.filename}`
+    // const compressed = `${config.img.path.all}/${type}/${subType}/${file.filename}`
+    const compressFile = `${config.img.path.all}/${type}/${subType}/${file.filename}`
+    const resizeFile = `${config.img.path.all}/${type}/${subType}/rs-${file.filename}`
     const newPath = `${config.img.path.all}/${type}/${subType}`
     const savePath = `${type}/${subType}/${file.filename}`
     const exist = await fs.access(newPath)
@@ -236,11 +238,15 @@ const edit = async (req, res, next) => {
             })
         }
       })
+    await util.compress(file.path, compressFile)
+      .catch((err) => { throw err })    
+    await util.resize(file.path, resizeFile)
+      .catch((err) => { throw err })
 
-    const save = await fs.rename(file.path, newFile)
-      .catch((err) => {
-        throw err
-      })
+    // const save = await fs.rename(file.path, newFile)
+    //   .catch((err) => {
+    //     throw err
+    //   })
 
     // 保存 img
     img.path = savePath
@@ -251,7 +257,8 @@ const edit = async (req, res, next) => {
 
     let result = {
       id: img._id,
-      compressed: `${config.url.img}/${img.path}`
+      path: `${config.url.img}/${img.path}`,
+      resized: `${config.url.img}/${img.path}`
     }
     res.send(result)
   } catch (e) {
@@ -316,11 +323,14 @@ const add = async (req, res, next) => {
     // 移动新图片
     const file = req.file
     // 'assets/imgs/work/comic/xxxx.jpg'
+    // 'assets/imgs/work/comic/rs-xxxx.jpg'
     // 'assets/imgs/work/comic'
     // 'work/comic/xxxx.jpg'
-    const newFile = config.img.path.all + '/' + type.type + '/' + type.subType.name_en + '/' + file.filename
+    const compressFile = config.img.path.all + '/' + type.type + '/' + type.subType.name_en + '/' + file.filename
+    const resizeFile = config.img.path.all + '/' + type.type + '/' + type.subType.name_en + '/rs-' + file.filename
     const newPath = config.img.path.all + '/' + type.type + '/' + type.subType.name_en
-    const savePath = type.type + '/' + type.subType.name_en + '/' + file.filename
+    const compressPath = type.type + '/' + type.subType.name_en + '/' + file.filename
+    const resizePath = type.type + '/' + type.subType.name_en + '/rs-' + file.filename
     const exist = await fs.access(newPath)
       .catch(async (err) => {
         if (err.code === 'ENOENT') {
@@ -330,30 +340,26 @@ const add = async (req, res, next) => {
             })
         }
       })
-
-    const save = await fs.rename(file.path, newFile)
-      .catch((err) => {
-        throw err
-      })
-
+    await util.compress(file.path, compressFile)
+      .catch((err) => { throw err })
+    await util.resize(file.path, resizeFile)
+      .catch((err) => { throw err })
     // 保存 img
     let option = {
-      path: savePath
+      path: compressPath,
+      resized: resizePath
     }
 
     let img = await Img.create(option)
-      .catch(err => {
-        throw err
-      })
+      .catch(err => { throw err })
     // 更新 sub
     sub.img = img._id
     sub.update_at = Date.now()
-    await sub.save().catch((err) => {
-      throw err
-    })
+    await sub.save().catch((err) => { throw err })
     let result = {
       id: img._id,
-      compressed: `${config.url.img}/${img.path}`
+      compressed: `${config.url.img}/${img.path}`,
+      resized: `${config.url.img}/${img.resized}`
     }
     // 返回
     res.send(result)

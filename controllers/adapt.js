@@ -85,7 +85,6 @@ const index = async (req, res, next) => {
               subType = await Type.findById(sub.subType)
                 .catch(err => Promise.reject(err))
             }
-            console.log(subType)
             return {
               id: sub._id,
               name: sub.name,
@@ -226,7 +225,6 @@ const exist = async (req, res, next) => {
     }
     let adapt = await Adapt.findOne(conditions)
       .catch((err) => { throw err })
-    console.log(adapt)
     if (adapt) {
       const err = new Error()
       err.msg = 'adapt 已存在'

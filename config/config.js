@@ -4,7 +4,7 @@ const config = {
   port: '8080',
   size: {
     // 3M
-    req: 3145728
+    req: 10 * 1024 * 1024
   },
   pagination: 10,
   tag: ['alert', 'not perfect complete', 'rotten', 'serials'],
@@ -13,7 +13,7 @@ const config = {
   },
   img: {
     // 2M, 2*1024*1024
-    size: 2 * 1024 * 1024,
+    size: 10 * 1024 * 1024,
     path: {
       upload: 'assets/upload/',
       work: 'assets/imgs/work',
@@ -27,7 +27,10 @@ const config = {
     img: 'http://img.list.ovo7.cn'
   },
   saltRounds: 10,
-  expireTime: 20 * 60 * 60
+  expireTime: 20 * 60 * 60,
+  tinify: {
+    key: 'ZRkGzcKlfPc56bddggfB7B8HFRw5Nsd6'
+  }
 }
 
 module.exports = config

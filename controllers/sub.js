@@ -1,4 +1,5 @@
 const joi = require('@hapi/joi')
+const fs = require('fs')
 
 const Sub = require('../models/sub')
 const Img = require('../models/img')
@@ -134,15 +135,19 @@ const del = async (req, res, next) => {
       }
       // 删除 img
       if (sub.img) {
-        const option = {
-          is_deleted: true,
-          update_at: Date.now(),
-          deleted_at: Date.now()
+        let img = await Img.findById(sub.img)
+          .catch((err) => {throw err})
+        if (result && result.is_deleted === false) {
+          await fs.unlink(`${config.img.path.all}/${img.path}`)
+            .catch((err) => { throw err })
+          await fs.unlink(`${config.img.path.all}/${img.resized}`)
+            .catch((err) => { throw err })
+          img.is_deleted = true
+          img.update_at = Date.now()
+          img.deleted_at = Date.now()
+          img = await img.save()
+            .catch(err => Promise.reject(err))
         }
-        const result = await Img.findByIdAndUpdate(sub.img, option)
-          .catch((err) => {
-            throw err
-          })
       }
       return sub.work
     })
@@ -275,7 +280,7 @@ const index = async (req, res, next) => {
           .catch((err) => {
             throw err
           })
-        item.img = `${config.url.img}/${image.path}`
+        item.img = `${config.url.img}/${image.resized}`
       }
       return item
     })
@@ -336,7 +341,6 @@ const single = async (req, res, next) => {
 
     let subs = await Sub.find(conditions, null, options)
       .catch(err => Promise.reject(err))
-    util.log('subs', subs)
 
     if (!subs || subs.length <= 0) {
       const err = new Error()
@@ -355,7 +359,8 @@ const single = async (req, res, next) => {
       let sub = {
         id: subItem._id,
         name: subItem.name,
-        secret: subItem.secret
+        secret: subItem.secret,
+        sort: subItem.sort
       }
       subItem.originName && (sub.originName = subItem.originName)
       subItem.info && subItem.info.length && (sub.info = subItem.info)
@@ -391,7 +396,8 @@ const single = async (req, res, next) => {
         return {
           id: img._id,
           sub: item._id,
-          compressed: config.url.img + '/' + img.path
+          compressed: config.url.img + '/' + img.path,
+          resized: config.url.img + '/' + img.resized,
         }
       }
     })
