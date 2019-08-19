@@ -25,7 +25,7 @@ const add = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '406'
+      err.code = '403'
       throw err
     }
     // 检查上传数据
@@ -100,9 +100,13 @@ const add = async (req, res, next) => {
     if (value.adapt) {
       // 将 work 链接到一个已存在的 adapt
       if (value.adapt.id) {
+        util.log('id')
         let adapt = await Adapt.findById(value.adapt.id)
           .catch(err => Promise.reject(err))
-        if (!adapt || adapt.is_deleted) return
+        if (!adapt || adapt.is_deleted) {
+          res.send(result)
+          return next()
+        }
         if (adapt.works.indexOf(value.adapt.id) < 0) {
           adapt.works.push(value.adapt.id)
           value.adapt.name && (adapt.name = value.adapt.name)
@@ -119,18 +123,23 @@ const add = async (req, res, next) => {
       }
       // adapt 没有 id,有 name
       // 新增一个 adapt
-      else if (value.adapt.name) {
+      else if (!value.adapt.id && value.adapt.name) {
+        util.log('name')
         let conditions = {
           name: value.adapt.name,
           is_deleted: false
         }
         let adapt = await Adapt.find(conditions)
           .catch(err => Promise.reject(err))
-        if (adapt) return
+        if (adapt) {
+          res.send(result)
+          return next()
+        }
         let item = {
           name: value.adapt.name,
           work: [work._id]
         }
+        util.log('item',item)
         value.adapt.origin && (item.origin = work._id)
         adapt = await Adapt.create(item)
           .catch(err => Promise.reject(err))
@@ -141,6 +150,7 @@ const add = async (req, res, next) => {
       }
     }
     res.send(result)
+    return next()
   } catch (e) {
     next(e)
   }
@@ -159,7 +169,7 @@ const edit = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '406'
+      err.code = '403'
       throw err
     }
     // 检查上传数据
@@ -339,7 +349,7 @@ const edit = async (req, res, next) => {
             // 将 work 添加至新的 adapt
             let adapt = await Adapt.findById(value.adapt.id)
               .catch(err => Promise.reject(err))
-            if (!adapt || adapt.is_deleted || adapt.works.indexOf(value.adapt.id) > 0) {
+            if (!adapt || adapt.is_deleted || adapt.works.indexOf(value.adapt.id) >= 0) {
               res.send(work._id)
               return next()
             }
@@ -468,7 +478,10 @@ const edit = async (req, res, next) => {
       // 移除 adapt 中的 work
       let adapt = await Adapt.findById(adaptId)
         .catch(err => Promise.reject(err))
-      if (!adapt || adapt.is_deleted) return
+      if (!adapt || adapt.is_deleted) {
+        res.send(work._id)
+        return next()
+      }
 
       let index = adapt.works.indexOf(work._id)
       adapt.works.splice(index, 1)
@@ -665,7 +678,7 @@ const index = async (req, res, next) => {
     result = await Promise.all(promises)
 
     res.send(result)
-
+    return next()
   } catch (e) {
     next(e)
   }
@@ -680,6 +693,7 @@ const index = async (req, res, next) => {
  */
 const single = async (req, res, next) => {
   try {
+    util.log('test')
     const value = await joi.validate(req.params, schema.work.single)
       .catch(err => {
         err.msg = '请求数据错误'
@@ -690,10 +704,16 @@ const single = async (req, res, next) => {
     const work = await Work.findById(value.id)
       .catch(err => Promise.reject(err))
 
-    if (!work || work.is_deleted === true || (work.secret === true && req.role.level < 1)) {
+    if (!work || work.is_deleted === true) {
       const err = new Error()
       err.msg = '没有找到 work'
       err.code = '406'
+      throw err
+    }
+    if (work.secret === true && req.role.level < 1) {
+      const err = new Error()
+      err.msg = '没有权限'
+      err.code = '403'
       throw err
     }
 
@@ -790,14 +810,15 @@ const single = async (req, res, next) => {
           let adaptWork = await Work.findById(workId)
             .catch(err => Promise.reject(err))
 
-          if (!adaptWork || adaptWork.is_deleted === true || adaptWork._id === work._id) return
+          if (!adaptWork || adaptWork.is_deleted === true || adaptWork._id.toString() === work._id.toString()) return
           let item = {
-            id: work._id,
+            id: adaptWork._id,
             subType: {
-              id: work.subType
+              id: adaptWork.subType
             }
           }
-          let subType = await Type.findById(work.subType)
+          util.log('item',item)
+          let subType = await Type.findById(adaptWork.subType)
             .catch(err => Promise.reject(err))
           if (!subType || subType.is_deleted) return
           item.subType.name = subType.subType.name
@@ -806,6 +827,7 @@ const single = async (req, res, next) => {
         })
         let worksResult = await Promise.all(getWorks)
           .catch(err => Promise.reject(err))
+        worksResult = worksResult.filter(item => item != null)
 
         worksResult && worksResult.length && (item.works = worksResult)
       }
@@ -813,7 +835,7 @@ const single = async (req, res, next) => {
     }
 
     res.send(result)
-
+    return next()
   } catch (e) {
     next(e)
   }
@@ -832,7 +854,7 @@ const del = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '406'
+      err.code = '403'
       throw err
     }
     const value = await joi.validate(req.params, schema.work.del)
@@ -932,7 +954,7 @@ const del = async (req, res, next) => {
 
       conditions = {
         works: adapt.works,
-        is_deleted: !adapt.work.length,
+        is_deleted: !!adapt.work.length,
         update_at: Date.now()
       }
       if (adapt.origin && adapt.origin === work._id) {
@@ -945,6 +967,7 @@ const del = async (req, res, next) => {
     }
 
     res.send(work._id)
+    return next()
   } catch (e) {
     next(e)
   }

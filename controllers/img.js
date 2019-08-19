@@ -24,7 +24,7 @@ const adds = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '406'
+      err.code = '403'
       throw err
     }
     const value = await joi.validate(req.body, schema.img.adds)
@@ -124,9 +124,7 @@ const adds = async (req, res, next) => {
         throw err
       })
     })
-    await Promise.all(deleteUploads).catch(err => {
-      console.log('promise')
-      throw err})
+    await Promise.all(deleteUploads).catch(err => { throw err })
     res.send(result)
 
   } catch (e) {
@@ -148,7 +146,7 @@ const del = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '406'
+      err.code = '403'
       throw err
     }
     const value = await joi.validate(req.params, schema.img.del)
@@ -190,7 +188,7 @@ const edit = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '406'
+      err.code = '403'
       throw err
     }
     req.body.id = req.params.id
@@ -260,6 +258,19 @@ const edit = async (req, res, next) => {
       path: `${config.url.img}/${img.path}`,
       resized: `${config.url.img}/${img.path}`
     }
+
+    const uploads = await fs.readdir(config.img.path.upload)
+      .catch((err) => {
+        throw err
+      })
+    // 删除 uploads 文件夹下图片
+    const deleteUploads = uploads.map(async item => {
+      await fs.unlink(config.img.path.upload + item).catch((err) => {
+        throw err
+      })
+    })
+    await Promise.all(deleteUploads).catch(err => { throw err })
+
     res.send(result)
   } catch (e) {
     next(e)
@@ -279,7 +290,7 @@ const add = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '406'
+      err.code = '403'
       throw err
     }
     const value = await joi.validate(req.body, schema.img.add)

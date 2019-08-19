@@ -16,7 +16,7 @@ const index = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '406'
+      err.code = '403'
       throw err
     }
     // 检查上传数据
@@ -119,7 +119,7 @@ const query = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '406'
+      err.code = '403'
       throw err
     }
     // 检查上传数据
@@ -208,7 +208,7 @@ const exist = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '406'
+      err.code = '403'
       throw err
     }
     // 检查上传数据

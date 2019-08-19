@@ -22,7 +22,7 @@ const add = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '406'
+      err.code = '403'
       throw err
     }
 
@@ -112,7 +112,7 @@ const edit = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '406'
+      err.code = '403'
       throw err
     }
     // 检查上传数据
@@ -376,7 +376,7 @@ const query = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '406'
+      err.code = '403'
       throw err
     }
     // 检查上传数据
@@ -481,7 +481,7 @@ const del = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '406'
+      err.code = '403'
       throw err
     }
     const value = await joi.validate(req.params, schema.figure.del)
