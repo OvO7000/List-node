@@ -100,7 +100,6 @@ const add = async (req, res, next) => {
     if (value.adapt) {
       // 将 work 链接到一个已存在的 adapt
       if (value.adapt.id) {
-        util.log('id')
         let adapt = await Adapt.findById(value.adapt.id)
           .catch(err => Promise.reject(err))
         if (!adapt || adapt.is_deleted) {
@@ -124,7 +123,6 @@ const add = async (req, res, next) => {
       // adapt 没有 id,有 name
       // 新增一个 adapt
       else if (!value.adapt.id && value.adapt.name) {
-        util.log('name')
         let conditions = {
           name: value.adapt.name,
           is_deleted: false
@@ -139,7 +137,6 @@ const add = async (req, res, next) => {
           name: value.adapt.name,
           work: [work._id]
         }
-        util.log('item',item)
         value.adapt.origin && (item.origin = work._id)
         adapt = await Adapt.create(item)
           .catch(err => Promise.reject(err))
@@ -693,7 +690,6 @@ const index = async (req, res, next) => {
  */
 const single = async (req, res, next) => {
   try {
-    util.log('test')
     const value = await joi.validate(req.params, schema.work.single)
       .catch(err => {
         err.msg = '请求数据错误'
@@ -804,7 +800,7 @@ const single = async (req, res, next) => {
         id: adapt._id,
         name: adapt.name
       }
-      if (adapt.works && adapt.works.length > 0) {
+      if (adapt.works && adapt.works.length > 0 && adapt.is_deleted === false) {
 
         let getWorks = adapt.works.map(async (workId, index) => {
           let adaptWork = await Work.findById(workId)
@@ -817,7 +813,6 @@ const single = async (req, res, next) => {
               id: adaptWork.subType
             }
           }
-          util.log('item',item)
           let subType = await Type.findById(adaptWork.subType)
             .catch(err => Promise.reject(err))
           if (!subType || subType.is_deleted) return
@@ -828,10 +823,9 @@ const single = async (req, res, next) => {
         let worksResult = await Promise.all(getWorks)
           .catch(err => Promise.reject(err))
         worksResult = worksResult.filter(item => item != null)
-
         worksResult && worksResult.length && (item.works = worksResult)
+        result.adapt = item
       }
-      result.adapt = item
     }
 
     res.send(result)

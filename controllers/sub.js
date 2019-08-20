@@ -6,6 +6,7 @@ const Img = require('../models/img')
 const Type = require('../models/type')
 const Work = require('../models/work')
 const Figure = require('../models/figure')
+const Adapt = require('../models/adapt')
 
 const util = require('../lib/util')
 const schema = require('../lib/schema')
@@ -420,28 +421,33 @@ const single = async (req, res, next) => {
     if (work.adapt) {
       let adapt = await Adapt.findById(work.adapt)
         .catch(err => Promise.reject(err))
-      if (adapt.works && adapt.works.length > 0) {
-        let getWorks = adapt.works.map(async (workId, index) => {
-          let work = await Work.findById(workId)
+      let item = {
+        id: adapt._id,
+        name: adapt.name
+      }
+      if (adapt && adapt.works && adapt.is_deleted === false && adapt.works.length > 0) {
+          let getWorks = adapt.works.map(async (workId, index) => {
+          let workItem = await Work.findById(workId)
             .catch(err => Promise.reject(err))
-          if (!work || work.is_deleted === true || (work.secret === true && req.role.level < 2)) return
+          if (!workItem || workItem.is_deleted === true || workItem._id.toString() === work._id.toString()) return
           let item = {
-            id: work._id,
+            id: workItem._id,
             subType: {
-              id: work.subType
+              id: workItem.subType
             }
           }
-          let subType = await Type.findById(work.subType)
+          let subType = await Type.findById(workItem.subType)
             .catch(err => Promise.reject(err))
           if (!subType || subType.is_deleted) return
           item.subType.name = subType.subType.name
           item.subType.name_en = subType.subType.name_en
           return item
         })
-        let adapt = await Promise.all(getWorks)
+        let worksResult = await Promise.all(getWorks)
           .catch(err => Promise.reject(err))
-
-        adapt && adapt.length && (result.adapt = adapt)
+        worksResult = worksResult.filter(item => item)
+        worksResult && worksResult.length && (item.works = worksResult)
+        result.adapt = item
       }
     }
 
