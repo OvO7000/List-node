@@ -22,7 +22,7 @@ const add = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
 
@@ -30,7 +30,7 @@ const add = async (req, res, next) => {
     const value = await joi.validate(req.body, schema.figure.add)
       .catch(err => {
         err.msg = 'figure数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
     // 检查 subType 是否存在
@@ -39,7 +39,7 @@ const add = async (req, res, next) => {
     if (!subType) {
       const err = new Error()
       err.msg = '没有找到subType'
-      err.code = '406'
+      err.code = 406
       throw err
     }
 
@@ -57,15 +57,17 @@ const add = async (req, res, next) => {
 
     // 检查 work
     if (value.work && value.work.length > 0) {
-      let checkWork = value.work.filter(async (workId, index) => {
+      let checkWork = value.work.map(async (workId, index) => {
         let sub = await Sub.findById(workId)
           .catch(err => Promise.reject(err))
         if (!sub || sub.is_deleted === true) {
-          return false
+          return
         }
-        return true
+        return sub
       })
       let workResults = await Promise.all(checkWork)
+      workResults = workResults.filter(item => item != null)
+
       // 将figure关联至sub
       let linkSub = workResults.splice(0, 3).map(async (sub, subIndex) => {
         // 删除和figure重复的info
@@ -74,7 +76,7 @@ const add = async (req, res, next) => {
         })
         sub.info.splice(infoIndex, 1)
         // 查看sub内是否已有figure
-        let figureIndex = sub.figure.findIndex(figure._id)
+        let figureIndex = sub.figure.findIndex((item, index) => item.toString() === figure._id.toString())
         if (figureIndex < 0) {
           sub.figure.push(figure._id)
           sub = await sub.save()
@@ -87,7 +89,7 @@ const add = async (req, res, next) => {
 
 
       if (subResults && subResults.length) {
-        figure.work = workResults
+        figure.work = subResults
         figure = await figure.save()
           .catch(err => Promise.reject(err))
       }
@@ -112,47 +114,59 @@ const edit = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     // 检查上传数据
     const value = await joi.validate(req.body, schema.figure.edit)
       .catch(err => {
         err.msg = 'work数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
+    // 检查 subType 是否存在
+    const subType = await Type.findById(value.subType)
+      .catch(err => Promise.reject(err))
+    if (!subType) {
+      const err = new Error()
+      err.msg = '没有找到subType'
+      err.code = 406
+      throw err
+    }
     // 检查 figure 是否存在
     let figure = await Figure.findById(value.id)
       .catch(err => Promise.reject(err))
     if (!figure || figure.is_deleted === true) {
       const err = new Error()
       err.msg = '没有找到figure'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     // 保存 figure
     if (hasChange(figure, value)) {
       let works = []
       if (value.work && value.work.length > 0) {
-        let checkWork = value.work.filter(async (workId, index) => {
+        let checkWork = value.work.map(async (workId, index) => {
           let sub = await Sub.findById(workId)
             .catch(err => Promise.reject(err))
           if (!sub || sub.is_deleted === true) {
-            return false
+            return
           }
-          return true
+          return sub
         })
         let workResults = await Promise.all(checkWork)
+        workResults = workResults.filter(item => item != null)
+
         // 将figure关联至sub
         let subPromise = workResults.splice(0,3).map(async(sub, subIndex) => {
           // 删除和figure重复的info
+
           let infoIndex = sub.info.findIndex((info, index) => {
             return (info.name === value.name && info.title === subType.subType.name)
           })
-          sub.info.splice(infoIndex, 1)
+          infoIndex && sub.info.splice(infoIndex, 1)
           // 查看sub内是否已有figure
-          let figureIndex = sub.figure.findIndex(figure._id)
+          let figureIndex = sub.figure.findIndex(figureId => figureId.toString() === figure._id.toString())
           if (figureIndex < 0) {
             sub.figure.push(figure._id)
             sub = await sub.save()
@@ -160,7 +174,7 @@ const edit = async (req, res, next) => {
           }
           return sub._id
         })
-        let works = await Promise.all(subPromise)
+        works = await Promise.all(subPromise)
           .catch(err => Promise.reject(err))
       }
 
@@ -197,7 +211,7 @@ const index = async (req, res, next) => {
     const value = await joi.validate(req.query, schema.figure.index)
       .catch(err => {
         err.msg = '请求数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
     // 查找 subType
@@ -206,7 +220,7 @@ const index = async (req, res, next) => {
     if (!subType || subType.is_deleted) {
       const err = new Error()
       err.msg = '没有找到subType'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     let results = []
@@ -305,7 +319,7 @@ const single = async (req, res, next) => {
     const value = await joi.validate(req.params, schema.figure.single)
       .catch(err => {
         err.msg = '请求数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
 
@@ -315,7 +329,7 @@ const single = async (req, res, next) => {
     if (!figure || figure.is_deleted) {
       const err = new Error()
       err.msg = '没有找到figure'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     let result = {
@@ -376,14 +390,14 @@ const query = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     // 检查上传数据
     const value = await joi.validate(req.query, schema.figure.query)
       .catch(err => {
         err.msg = '请求数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
 
@@ -481,13 +495,13 @@ const del = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     const value = await joi.validate(req.params, schema.figure.del)
       .catch(err => {
         err.msg = '请求数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
 
@@ -497,7 +511,7 @@ const del = async (req, res, next) => {
     if (!figure || figure.is_deleted) {
       const err = new Error()
       err.msg = '没有找到figure'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     // 删除 figure
@@ -553,13 +567,16 @@ function hasChange(figure, item) {
     if (figure.work.length !== item.work.length) {
       return true
     } else {
+      let flag = false
+
       figure.work.sort()
       item.work.sort()
       figure.work.forEach((work, index) => {
         if (work !== item.work[index]) {
-          return true
+          flag = true
         }
       })
+      return flag
     }
   }
   if (!item.work && figure.work.length !== 0) {
@@ -570,13 +587,15 @@ function hasChange(figure, item) {
     if (figure.link.length !== item.link.length) {
       return true
     } else {
+      let flag = false
       figure.link.sort()
       item.link.sort()
       figure.link.forEach((link, index) => {
         if (link.name !== item.link[index].name || link.title !== item.link[index].href) {
-          return true
+          flag = true
         }
       })
+      return flag
     }
   }
   if (!item.link && figure.link.length !== 0) {

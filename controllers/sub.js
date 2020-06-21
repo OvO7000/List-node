@@ -1,5 +1,5 @@
 const joi = require('@hapi/joi')
-const fs = require('fs')
+const fs = require('fs').promises
 
 const Sub = require('../models/sub')
 const Img = require('../models/img')
@@ -25,14 +25,14 @@ const add = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     // 检查上传数据
     const value = await joi.validate(req.body, schema.sub.add)
       .catch(err => {
         err.msg = 'work数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
     // 检查 work 是否存在
@@ -41,7 +41,7 @@ const add = async (req, res, next) => {
     if (!work) {
       const err = new Error()
       err.msg = '没有找到work'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     let conditions = {
@@ -94,13 +94,13 @@ const del = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     const value = await joi.validate(req.body, schema.sub.del)
       .catch(err => {
         err.msg = '请求数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
 
@@ -205,14 +205,14 @@ const index = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     // 检查上传数据
     const value = await joi.validate(req.query, schema.sub.index)
       .catch(err => {
         err.msg = 'work数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
 
@@ -304,7 +304,7 @@ const single = async (req, res, next) => {
     const value = await joi.validate(req.params, schema.sub.single)
       .catch(err => {
         err.msg = '请求数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
 
@@ -313,13 +313,13 @@ const single = async (req, res, next) => {
     if (!sub || sub.is_deleted === true) {
       const err = new Error()
       err.msg = '没有找到 work'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     if (sub.secret === true && req.role.level < 1) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     const work = await Work.findById(sub.work)
@@ -328,13 +328,13 @@ const single = async (req, res, next) => {
     if (!work || work.is_deleted === true) {
       const err = new Error()
       err.msg = '没有找到 work'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     if (work.secret === true && req.role.level < 1) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
 
@@ -358,7 +358,7 @@ const single = async (req, res, next) => {
     if (!subs || subs.length <= 0) {
       const err = new Error()
       err.msg = '没有找到 work'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     const result = {

@@ -24,13 +24,13 @@ const adds = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     const value = await joi.validate(req.body, schema.img.adds)
       .catch((err) => {
         err.msg = '请求数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
     const saveImg = value.ids.map(async (id, index) => {
@@ -146,13 +146,13 @@ const del = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     const value = await joi.validate(req.params, schema.img.del)
       .catch((err) => {
         err.msg = 'img数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
     const conditions = {
@@ -188,14 +188,14 @@ const edit = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     req.body.id = req.params.id
     const value = await joi.validate(req.body, schema.img.edit)
       .catch((err) => {
         err.msg = 'img数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
 
@@ -290,13 +290,13 @@ const add = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     const value = await joi.validate(req.body, schema.img.add)
       .catch((err) => {
         err.msg = 'img数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
     const sub = await Sub.findById(value.sub)

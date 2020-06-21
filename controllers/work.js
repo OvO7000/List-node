@@ -1,5 +1,5 @@
 const joi = require('@hapi/joi')
-const fs = require('fs')
+const fs = require('fs').promises
 
 const Sub = require('../models/sub')
 const Figure = require('../models/figure')
@@ -25,14 +25,14 @@ const add = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     // 检查上传数据
     const value = await joi.validate(req.body, schema.work.add)
       .catch(err => {
         err.msg = 'work数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
     // 检查 subType 是否存在
@@ -41,7 +41,7 @@ const add = async (req, res, next) => {
     if (!subType) {
       const err = new Error()
       err.msg = '没有找到subType'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     // 保存 work
@@ -166,14 +166,14 @@ const edit = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     // 检查上传数据
     const value = await joi.validate(req.body, schema.work.edit)
       .catch(err => {
         err.msg = 'work数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
     // 检查 work 是否存在
@@ -182,7 +182,7 @@ const edit = async (req, res, next) => {
     if (!work || work.is_deleted === true) {
       const err = new Error()
       err.msg = '没有找到work'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     // 保存sub
@@ -193,7 +193,7 @@ const edit = async (req, res, next) => {
       if (!sub) {
         const err = new Error()
         err.msg = 'no such record'
-        err.code = '406'
+        err.code = 406
         throw err
       }
       if (hasChange(sub, item)) {
@@ -214,7 +214,7 @@ const edit = async (req, res, next) => {
         // 删除work下被删除figure的关联
         if (sub.figure) {
           // work下被删除figure
-          let figureIds = sub.figure.filter(figureId => item.figure.indexOf(figureId) < 0)
+          let figureIds = sub.figure.filter(figureId => !item.figure || item.figure.indexOf(figureId) < 0)
           let deleteFigureLink = figureIds.map(async (figureId, figureIndex) => {
             let figure = await Figure.findById(figureId)
               .catch(err => Promise.reject(err))
@@ -515,7 +515,7 @@ const index = async (req, res, next) => {
     const value = await joi.validate(req.query, schema.work.index)
       .catch(err => {
         err.msg = '请求数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
     // 查找 subType
@@ -524,7 +524,7 @@ const index = async (req, res, next) => {
     if (!subType || subType.is_deleted) {
       const err = new Error()
       err.msg = '没有找到subType'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     let result = []
@@ -612,8 +612,10 @@ const index = async (req, res, next) => {
               title: subType.subType.name
             }
           })
-          sub.figure = await Promise.all(getFigures)
+          let figureResults = await Promise.all(getFigures)
             .catch(err => Promise.reject(err))
+          figureResults = figureResults.filter(item => item != null)
+          figureResults && figureResults.length && (sub.figure = figureResults)
         }
         return sub
       })
@@ -643,6 +645,9 @@ const index = async (req, res, next) => {
           name: adapt.name
         }
         adapt.origin && (item.origin = adapt.origin)
+        if (adapt.origin) {
+          item.origin = adapt.origin.toString() === work._id.toString()
+        }
         if (adapt && adapt.works && adapt.works.length > 0) {
           let getWorks = adapt.works.map(async (workId, index) => {
             let adaptWork = await Work.findById(workId)
@@ -693,7 +698,7 @@ const single = async (req, res, next) => {
     const value = await joi.validate(req.params, schema.work.single)
       .catch(err => {
         err.msg = '请求数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
 
@@ -703,13 +708,13 @@ const single = async (req, res, next) => {
     if (!work || work.is_deleted === true) {
       const err = new Error()
       err.msg = '没有找到 work'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     if (work.secret === true && req.role.level < 1) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
 
@@ -733,7 +738,7 @@ const single = async (req, res, next) => {
     if (!subs || subs.length <= 0) {
       const err = new Error()
       err.msg = '没有找到 work'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     const result = {
@@ -769,8 +774,10 @@ const single = async (req, res, next) => {
             title: subType.subType.name
           }
         })
-        sub.figure = await Promise.all(getFigures)
+        let figureResults = await Promise.all(getFigures)
           .catch(err => Promise.reject(err))
+        figureResults = figureResults.filter(item => item != null)
+        figureResults && figureResults.length && (sub.figure = figureResults)
       }
       return sub
     })
@@ -848,13 +855,13 @@ const del = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     const value = await joi.validate(req.params, schema.work.del)
       .catch(err => {
         err.msg = '请求数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
 
@@ -864,7 +871,7 @@ const del = async (req, res, next) => {
     if (!work || work.is_deleted) {
       const err = new Error()
       err.msg = '没有找到work'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     // 删除 work
@@ -919,7 +926,7 @@ const del = async (req, res, next) => {
         if (sub.img) {
           let img = await Img.findById(sub.img)
             .catch((err) => {throw err})
-            if (result && result.is_deleted === false) {
+            if (img && img.is_deleted === false) {
               await fs.unlink(`${config.img.path.all}/${img.path}`)
                 .catch((err) => { throw err })
               await fs.unlink(`${config.img.path.all}/${img.resized}`)
@@ -983,13 +990,15 @@ function hasChange(sub, item) {
     if (sub.tag.length !== item.tag.length) {
       return true
     } else {
+      let flag = false
       sub.tag.sort()
       item.tag.sort()
       sub.tag.forEach((tag, index) => {
         if (tag !== item.tag[index]) {
-          return true
+          flag = true
         }
       })
+      return flag
     }
   }
   if (!item.tag && sub.tag.length !== 0) {
@@ -1000,13 +1009,15 @@ function hasChange(sub, item) {
     if (sub.figure.length !== item.figure.length) {
       return true
     } else {
+      let flag = false
       sub.figure.sort()
       item.figure.sort()
       sub.figure.forEach((tag, index) => {
         if (tag !== item.figure[index]) {
-          return true
+          flag = true
         }
       })
+      return flag
     }
   }
   if (!item.figure && sub.figure.length !== 0) {
@@ -1017,13 +1028,15 @@ function hasChange(sub, item) {
     if (sub.info.length !== item.info.length) {
       return true
     } else {
+      let flag = false
       sub.info.sort()
       item.info.sort()
       sub.info.forEach((info, index) => {
         if (info.name !== item.info[index].name || info.title !== item.info[index].title) {
-          return true
+          flag = true
         }
       })
+      return flag
     }
   }
   if (!item.info && sub.info.length !== 0) {

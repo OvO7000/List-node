@@ -16,14 +16,14 @@ const index = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     // 检查上传数据
     const value = await joi.validate(req.query, schema.figure.query)
       .catch(err => {
         err.msg = '请求数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
 
@@ -119,14 +119,14 @@ const query = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     // 检查上传数据
     const value = await joi.validate(req.query, schema.adapt.query)
       .catch(err => {
         err.msg = '请求数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
 
@@ -182,7 +182,7 @@ const query = async (req, res, next) => {
           work: work._id,
           is_deleted: false,
           img: {
-            $exist: true
+            $exists: true
           }
         }
         let sub = await Sub.findOne(conditions)
@@ -191,7 +191,7 @@ const query = async (req, res, next) => {
         let img = await Img.findById(sub.img)
           .catch(err => Promise.reject(err))
         if (!img || img.is_deleted) return
-        item.img = `${config.url.img}/${image.path}`
+        item.img = `${config.url.img}/${img.path}`
       }
       return item
     })
@@ -208,14 +208,14 @@ const exist = async (req, res, next) => {
     if (!req.role || req.role.level !== 2) {
       const err = new Error()
       err.msg = '没有权限'
-      err.code = '403'
+      err.code = 403
       throw err
     }
     // 检查上传数据
     const value = await joi.validate(req.query, schema.adapt.exist)
       .catch(err => {
         err.msg = '请求数据错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
 
@@ -228,7 +228,7 @@ const exist = async (req, res, next) => {
     if (adapt) {
       const err = new Error()
       err.msg = 'adapt 已存在'
-      err.code = '406'
+      err.code = 406
       throw err
     } else {
       res.send({ exist: false })

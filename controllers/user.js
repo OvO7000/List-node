@@ -30,7 +30,7 @@ const add = async (name, password, level) => {
     if (!hashedPassword) {
       const err = new Error()
       err.msg = '密码hash失败'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     let data = {
@@ -62,7 +62,7 @@ const login = async (req, res, next) => {
     const value = await joi.validate(req.body, schema.user.login)
       .catch(err => {
         err.msg = '用户信息错误'
-        err.code = '406'
+        err.code = 406
         throw err
       })
     // 检查 user 是否存在
@@ -75,7 +75,7 @@ const login = async (req, res, next) => {
     if (!user || user.is_deleted === true) {
       const err = new Error()
       err.msg = '用户不存在'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     // 检查密码是否匹配
@@ -84,7 +84,7 @@ const login = async (req, res, next) => {
     if (!match) {
       const err = new Error()
       err.msg = '密码错误'
-      err.code = '406'
+      err.code = 406
       throw err
     }
     // 生成密钥
