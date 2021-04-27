@@ -31,7 +31,7 @@
     "jsonwebtoken": "^8.5.1",
     "mongoose": "^5.5.12",
     "multer": "^1.4.1",
-    "redis": "^2.8.0",
+    "redis": "^3.1.1",
     "tinify": "^1.6.0-beta.2",
     "uuid": "^3.3.2"
   }
